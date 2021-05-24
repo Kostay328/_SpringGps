@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layout}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Главная страница GPS</title>
+</head>
+<body>
+
+<div layout:fragment="title">
+    Мониторинг автомобилей
+</div>
+
+<div layout:fragment="content">
+    <div class="row">
+        <div class="col-9">
+            <h1>Добро пожаловать!</h1>
+            <div id="map"></div>
+
+            <div class="row mt-3">
+                Автомобили
+                <select size="10" class="form-control">
+                    <option th:each="car : ${cars}" value="11">
+                        <span th:text="${car.id}"> id </span>
+                        <span th:text="${car.no}"> no </span>
+                    </option>
+                </select>
+            </div>
+
+
+            <p>Click <a th:href="@{/hello}">here</a> to see a greeting.</p>
+        </div>
+        <div class="col-3">
+            <div class="row">
+                <input type="button" class="btn btn-success btn-block" value="Отобразить все автомобили">
+            </div>
+            <div class="row mt-3">
+                Автомобили
+                <select id="car" size="10" class="form-control">
+                    <option value="11">С 027 КР 190&nbsp;УАЗ 220695&nbsp;(027)</option>
+                    <option value="2">С 285 ЕР 190&nbsp;ГАЗ-3302&nbsp;(285)</option>
+                    <option value="3">М 496 АХ 150&nbsp;ВИС-234700&nbsp;(496)</option>
+                    <option value="9">В 543 АУ 90&nbsp;ВАЗ 21093&nbsp;(543)</option>
+                    <option value="1">С 573 МЕ 150&nbsp;УАЗ Патриот&nbsp;(573)</option>
+                    <option value="8">Х 587 КВ 750&nbsp;ГАЗ-3302&nbsp;(587)</option>
+                    <option value="12">Х 607 КМ 50&nbsp;ВАЗ 2123 Нива&nbsp;(607)</option>
+                    <option value="7">С 703 КВ 150&nbsp;ГАЗ-3302&nbsp;(703)</option>
+                    <option value="4">Т 722 МЕ 150&nbsp;ГАЗ-3302&nbsp;(722)</option>
+                    <option value="14">А 728 ЕУ 750&nbsp;ГАЗ-3302&nbsp;(728)</option>
+                    <option value="6">У 821 РХ 190&nbsp;ГАЗ-3302&nbsp;(821)</option>
+                    <option value="5">Н 827 МЕ 90&nbsp;ГАЗ-3302&nbsp;(827)</option>
+                </select>
+            </div>
+            <div class="row">
+            </div>
+        </div>
+    </div>
+</div>
+<script th:src="@{/js/map.js}"></script>
+<script th:src="@{http://maps.googleapis.com/maps/api/js?language=ru-RU&key=AIzaSyBua0B0fQAn559xE_lUp8cliK-zH_lHZUw}"></script>
+<script th:src="@{/js/maplib.js}"></script>
+<script>
+    ining.setPosition(55.1, 38.8, 12.0);
+</script>
+</body>
+</html>

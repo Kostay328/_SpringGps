@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layout}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <title>HW Главная страница GPS</title>
+</head>
+<body>
+
+<div layout:fragment="title">
+    Пробег машин
+</div>
+
+<div layout:fragment="content">
+    <div class="container">
+        <p th:text="${millage}"> millage </p>
+        <form th:action="@{/first}" method="post">
+            <input type="text" name="wbt" class="fadeIn second" placeholder="Выборка дней">
+            <button type="submit" class="btn btn-primary btn-lg">Начать</button>
+        </form>
+
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th scope="col">Рег. Номер</th>
+                <th scope="col">Пробег</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="res : ${reslst}">
+                <td th:text="${res.regnum}">Regnum</td>
+                <td th:text="${res.millage}">Пробег</td>
+            </tr>
+            </tbody>
+        </table>
+
+<!--        <table class="table table-striped">-->
+<!--            <tr th:each="res : ${reslst}">-->
+<!--                <td th:text="${res.Regnum}">Regnum</td>-->
+<!--                <td th:text="${res.RunGPS}">Пробег</td>-->
+<!--            </tr>-->
+<!--        </table>-->
+    </div>
+</div>
+</body>
+</html>
