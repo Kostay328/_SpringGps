@@ -12,23 +12,32 @@
 
 <div layout:fragment="content">
     <div class="container">
-        <p th:text="${millage}"> millage </p>
         <form th:action="@{/first}" method="post">
-            <input type="text" name="wbt" class="fadeIn second" placeholder="Выборка дней">
-            <button type="submit" class="btn btn-primary btn-lg">Начать</button>
+            <input type="text" name="startTime" class="fadeIn second" placeholder="Начало" th:value="${date.fdate}">
+            <input type="text" name="endTime" class="fadeIn second" placeholder="Конец" th:value="${date.ldate}">
+            <button type="submit" class="btn btn-primary btn-lg">Отчет</button>
         </form>
-
-        <table class="table table-striped">
+        <table class="table table-striped mt-3">
             <thead>
             <tr>
-                <th scope="col">Рег. Номер</th>
-                <th scope="col">Пробег</th>
+                <th scope="col">№</th>
+                <th scope="col">Госномер</th>
+                <th th:each="date : ${date_list}"><span th:text="${date}"></span></th>
+                <th scope="col">За период</th>
             </tr>
             </thead>
             <tbody>
-            <tr th:each="res : ${reslst}">
-                <td th:text="${res.regnum}">Regnum</td>
-                <td th:text="${res.millage}">Пробег</td>
+            <tr th:each="car_run, state : ${car_runs}">
+                <td style="vertical-align: middle" th:text="${state.count}">index</td>
+                <td style="vertical-align: middle" th:text="${car_run.value.lst.get(0).no}"></td>
+                <td th:each="md : ${car_run.value.lst}">
+                    <div th:style ="${md.color}">
+                        <span th:text="${md.mileageKm}"></span>
+                        <br>
+                        <span th:text="${md.duration}"></span>
+                    </div>
+                </td>
+                <td style="vertical-align: middle; text-align: center" th:text="${car_run.value.sumMileage}"></td>
             </tr>
             </tbody>
         </table>
