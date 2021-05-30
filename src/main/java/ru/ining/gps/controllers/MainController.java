@@ -7,6 +7,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import ru.ining.gps.controllers.lib.AutoGpsLib;
 import ru.ining.gps.mappers.CarMapper;
+import ru.ining.gps.mappers.DevMapper;
 
 import java.sql.Date;
 import java.util.*;
@@ -17,9 +18,10 @@ import java.util.TreeMap;
 @Controller
 public class MainController {
     final CarMapper carMapper;
+    final DevMapper devMapper;
 
-    public MainController(CarMapper carMapper) {
-        this.carMapper = carMapper;
+    public MainController(CarMapper carMapper, DevMapper devMapper) {
+        this.carMapper = carMapper; this.devMapper = devMapper;
     }
 
     @RequestMapping(value = { "/", "/index" }, method = RequestMethod.GET)
@@ -33,6 +35,12 @@ public class MainController {
         java.util.Date nowDate = new java.util.Date();
         model.addAttribute("date", AutoGpsLib.foundCD(AutoGpsLib.convertDate(nowDate)));
         return "first";
+    }
+
+    @GetMapping("/devinfo")
+    public String devinfo(Model model) {
+        model.addAttribute("dev_inf_lst", AutoGpsLib.getDevInfLst(devMapper));
+        return "devinfo";
     }
 
     @RequestMapping(value = { "/first" }, method = RequestMethod.POST)

@@ -1,7 +1,9 @@
 package ru.ining.gps.controllers.lib;
 
 import ru.ining.gps.entity.CarMillage;
+import ru.ining.gps.entity.DevInfo;
 import ru.ining.gps.mappers.CarMapper;
+import ru.ining.gps.mappers.DevMapper;
 
 import java.io.IOException;
 import java.text.DateFormat;
@@ -217,6 +219,13 @@ public class AutoGpsLib {
             Collections.sort(row.lst, (a, b) -> a.start < b.start ? -1 : a.start == b.start ? 0 : 1);
             res.put(key, row);
         }
+        return res;
+    }
+
+    public static List<DevInfo> getDevInfLst(DevMapper devMapper) {
+        List<DevInfo> res = new ArrayList<DevInfo>();
+        res = devMapper.getDevInfo();
+
         return res;
     }
 }

@@ -21,5 +21,6 @@
     <mappers><!--в данном блоке необходимо описать маперы, которые используются в проекте-->
 <!--        <mapper class="kz.jazzsoft.mapper.SubscriberMapper"/>-->
         <mapper class="ru.ining.gps.db.CarMapper"/>
+        <mapper class="ru.ining.gps.db.DevMapper"/>
     </mappers>
 </configuration>
