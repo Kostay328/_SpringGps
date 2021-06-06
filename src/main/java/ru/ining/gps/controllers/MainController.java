@@ -6,10 +6,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import ru.ining.gps.controllers.lib.AutoGpsLib;
+import ru.ining.gps.entity.Marker;
 import ru.ining.gps.mappers.CarMapper;
 import ru.ining.gps.mappers.DevMapper;
 
-import java.sql.Date;
 import java.util.*;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -30,11 +30,11 @@ public class MainController {
         return "main";
     }
 
-    @GetMapping("/first")
-    public String first(Model model) {
-        java.util.Date nowDate = new java.util.Date();
-        model.addAttribute("date", AutoGpsLib.foundCD(AutoGpsLib.convertDate(nowDate)));
-        return "first";
+    @GetMapping("/map")
+    public String map(Model model) {
+        String marker = AutoGpsLib.getMarkersLst(AutoGpsLib.getDevInfLst(devMapper));
+            model.addAttribute("marker", marker);
+        return "map";
     }
 
     @GetMapping("/devinfo")

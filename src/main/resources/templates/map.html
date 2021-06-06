@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layout}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Машины</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+    <script th:inline="javascript" th:utext=${marker}></script>
+<!--    <script th:each="element: ${markers}" th:inline="javascript">[[${element}]]</script>-->
+<!--    <script>-->
+<!--        function sayHi() {-->
+<!--            alert('Привет');-->
+<!--        }-->
+
+<!--        var i = 1;                      //  set your counter to 1-->
+
+<!--        function myLoop() {             //  create a loop function-->
+<!--            setTimeout(function() {     //  call a 3s setTimeout when the loop is called-->
+<!--                sayHi();   				//  your code here-->
+<!--                i++;                    //  increment the counter-->
+<!--                myLoop();             	//  ..  again which will trigger another-->
+<!--            }, 3000)-->
+<!--        }-->
+<!--        myLoop();-->
+
+<!--    </script>-->
+</head>
+<body>
+
+<div layout:fragment="content">
+    <div style="width:100%;height:800px;" id="map"></div>
+
+<!-- Async script executes immediately and must be after any DOM elements used in callback. -->
+<script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGhTTISG0mPFtcux-8dKCu4eYECjarffs&callback=initMap&libraries=&v=weekly"
+        async
+></script>
+</div>
+</body>
+</html>

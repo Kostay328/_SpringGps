@@ -28,8 +28,8 @@
             </tr>
             </thead>
             <tbody>
-            <tr th:each="dev_inf : ${dev_inf_lst}">
-                <th th:style="${dev_inf.style}" th:text="${dev_inf.id}"></th>
+            <tr th:each="dev_inf, state : ${dev_inf_lst}">
+                <th th:style="${dev_inf.style}" th:text="${state.count}"></th>
                 <th th:style="${dev_inf.style}" th:text="${dev_inf.no}"></th>
                 <th th:style="${dev_inf.style}">
                     <input th:checked="${dev_inf.active}" disabled="disabled" type="checkbox">

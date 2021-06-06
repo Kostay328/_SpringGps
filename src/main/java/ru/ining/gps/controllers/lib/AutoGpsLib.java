@@ -2,6 +2,7 @@ package ru.ining.gps.controllers.lib;
 
 import ru.ining.gps.entity.CarMillage;
 import ru.ining.gps.entity.DevInfo;
+import ru.ining.gps.entity.Marker;
 import ru.ining.gps.mappers.CarMapper;
 import ru.ining.gps.mappers.DevMapper;
 
@@ -112,6 +113,48 @@ public class AutoGpsLib {
             this.fdate = fdate;
             this.ldate = ldate;
         }
+    }
+
+
+    public static String initMap() {
+        String res =
+                "         let map;\n" +
+                        "        function initMap() {\n" +
+                        "            map = new google.maps.Map(document.getElementById(\"map\"), {\n" +
+                        "                 center: { lat: 55.10948, lng: 38.749325 },\n" +
+                        "                zoom: 12,\n" +
+                        "            });}";
+
+        return res;
+    }
+
+    public static String creatMarkers(List<DevInfo> devInfoList) {
+        String res = "function initMap() { ";
+        for (DevInfo devInf : devInfoList) {
+            if (devInf.isActive()) {
+                res += new Marker(devInf.getName(), devInf.getLats(), devInf.getSpeed(), devInf.getDevice(), devInf.getLat(), devInf.getLng(), devInf.getCourse()).toString();
+            }
+        }
+
+        return res + " }";
+    }
+
+
+    public static String getMarkersLst(List<DevInfo> devInfoList) {
+        String res =
+                "         let map;\n" +
+                "        function initMap() {\n" +
+                "            map = new google.maps.Map(document.getElementById(\"map\"), {\n" +
+                "                 center: { lat: 55.10948, lng: 38.749325 },\n" +
+                "                zoom: 12,\n" +
+                "            }); ";
+
+        for (DevInfo devInf : devInfoList) {
+            if (devInf.isActive()) {
+                res += new Marker(devInf.getName(), devInf.getLats(), devInf.getSpeed(), devInf.getDevice(), devInf.getLat(), devInf.getLng(), devInf.getCourse()).toString();
+            }
+        }
+        return res + " }";
     }
 
     public static CDate foundCD(LocalDate fdate) {
