@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Test</title>
+</head>
+<body onload="getRows()">
+
+<div style="margin-left: 52px" layout:fragment="title">
+  Путевые Листы
+</div>
+
+
+
+
+<div layout:fragment="content" onload="getRows()">
+    <link rel='stylesheet' type='text/css' href='css/sortbtn.css'>
+    <script>
+
+        function check() {
+            var nodes = document.getElementsByTagName("input");
+            for (var i = 0; i < nodes.length; i++) {
+                if (nodes[i].type === "checkbox")
+                    nodes[i].checked = true;
+            }
+        }
+
+        function formatParams( params ){
+            return "?" + Object
+                .keys(params)
+                .map(function(key){
+                    return key + "=" + encodeURIComponent(params[key])
+                })
+                .join("&")
+        }
+
+        function update() {
+            let xhr = new XMLHttpRequest();
+
+            let Strdte = new Date(document.getElementById("rshStrdte").value)
+            let Lvdtetimpl = new Date(document.getElementById("rshLvdtetimpl").value)
+            let params = {
+                Rtrun: Number(document.getElementById("rshRtrun").value),
+                Lvrun: Number(document.getElementById("rshLvrun").value),
+                Brn: Number(document.getElementById("rshBrn").value),
+                Rshbrn: Number(document.getElementById("rshRshbrn").value),
+                Rsh: Number(document.getElementById("rshRsh").value),
+                Rshext: Number(document.getElementById("rshRshext").value),
+                Vclstamp: document.getElementById("rshVclstamp").value,
+                Strdte: Strdte.toString(),
+                Lvdtetimpl: Lvdtetimpl.toString(),
+                Hdrsts: document.getElementById("rshHdrsts").value,
+                // Model: document.getElementById("rshModel").value,
+                // Regnum: document.getElementById("rshRegnum").value
+            }
+
+
+            xhr.open('GET', '/rest/set_routs_update_js' + formatParams(params), false);
+            xhr.send();
+
+            let rest = JSON.parse(xhr.responseText);
+
+            if(rest.status === -1)
+                alert("Ошибка при записи пробега в БД");
+            else if(rest.status === 1) {
+                //записан пробег начальный из прошлой записи и норма расхода
+                getRows();
+            }else if(rest.status === 2) {
+                //записан только пробег на конец, не удалось найти начальный пробег
+                getRows();
+                alert("Ни в этой ни в предыдущей записи нет пробега, пожалуйста заполните пробег в записи: " + rest.prev)
+            }else if(rest.status === 3) {
+                //записан конечный пробег и норма расхода
+                getRows();
+            }
+        }
+    </script>
+    <script>
+        function fadeOut(el) {
+            var opacity = 1;
+            var timer = setInterval(function() {
+                if(opacity <= 0.1) {
+                    clearInterval(timer);
+                    document.querySelector(el).style.display = "none";
+                }
+                document.querySelector(el).style.opacity = opacity;
+                opacity -= opacity;
+            }, 10);
+        }
+
+        function fadeIn(el) {
+            var opacity = 0.01;
+            document.querySelector(el).style.display = "block";
+            var timer = setInterval(function() {
+                if(opacity >= 1) {
+                    clearInterval(timer);
+                }
+                document.querySelector(el).style.opacity = opacity;
+                opacity += opacity;
+            }, 10);
+        }
+    </script>
+<!--  <link rel='stylesheet' type='text/css' href='css/sortbtn.css'>-->
+    <css></css>
+  <div class="container" style="margin: 20px">
+      <nobr>
+          <button style="margin-bottom: 5px" type="submit" id="on_sign" class="btn btn-success">На подпись</button>
+          <button style="margin-bottom: 5px" type="submit" id="sign_selected" class="btn btn-success">Подписать выделенные</button>
+      </nobr>
+      <nobr>
+          <input style="height: 28px" type="date" id="startTime" name="startTime">
+          <input style="height: 28px" type="date" id="endTime" name="endTime">
+          <span> Шаблон:</span>
+          <select style="height: 28px" id="mode" name="mode">
+              <option value="">Все шаблоны</option>
+              <option th:each="tmp : ${template}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>
+          </select>
+          <span> Отдел:</span>
+          <select style="height: 28px" id="mode1" name="mode">
+              <option value="">Все отдел</option>
+              <option th:each="dep : ${deps}" th:value="${dep.key12}" th:text="${dep.val}"></option>
+          </select>
+          <span> Автор ФИО:</span>
+          <select style="height: 28px" id="mode2" name="mode">
+              <option value="">Все имена</option>
+              <option th:each="fio : ${FIOs}" th:value="${fio.key1}" th:text="${fio.value}"></option>
+          </select>
+          <button id="btnDelAll" type="submit" class="btn btn-danger" onclick="delParams()">Сбросить</button>
+          <div th:text="${tcpoa}"></div>
+      </nobr>
+
+
+      <table class="table mt-3">
+          <thead>
+              <tr>
+                  <div>
+                      <th scope="col"><button class="btn btn-success" onclick="check()"><nobr>Выбрать все</nobr></button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="1">N</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="2">Дата</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="3">Шаблон</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="4">Отдел</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="5">Автор</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="6">Подпись</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="7">Согласовано</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="8">Подпись</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="9">Утвержден</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="10">Подпись</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="11">Исполнен</button></th>
+                      <th scope="col" class="second"><button style="border:none;" id="12">Подпись</button></th>
+                  </div>
+              </tr>
+          </thead>
+          <tbody id="table"></tbody>
+      </table>
+
+      <script>
+          function setCookie(name, value, options = {}) {
+
+              options = {
+                  path: '/',
+                  ...options
+              };
+
+              if (options.expires instanceof Date) {
+                  options.expires = options.expires.toUTCString();
+              }
+
+              let updatedCookie = encodeURIComponent(name) + "=" + encodeURIComponent(value);
+
+              for (let optionKey in options) {
+                  updatedCookie += "; " + optionKey;
+                  let optionValue = options[optionKey];
+                  if (optionValue !== true) {
+                      updatedCookie += "=" + optionValue;
+                  }
+              }
+
+              document.cookie = updatedCookie;
+          }
+
+          var SoRt = "";
+
+          function getRows() {
+              document.getElementById("1").className = '';
+              document.getElementById("2").className = '';
+              document.getElementById("3").className = '';
+              document.getElementById("4").className = '';
+              document.getElementById("5").className = '';
+              document.getElementById("6").className = '';
+              document.getElementById("7").className = '';
+              document.getElementById("8").className = '';
+              document.getElementById("9").className = '';
+              document.getElementById("10").className = '';
+              document.getElementById("11").className = '';
+              document.getElementById("12").className = '';
+
+              let xhr = new XMLHttpRequest();
+
+              xhr.open('GET', '/get_routs_js?pageMrk=' + (Number(document.getElementById("pageMarker").innerText) - 1), false);
+              //xhr.open('GET', '/get_routs_js', false);
+              xhr.send();
+
+              let rest = JSON.parse(xhr.responseText);
+
+              SoRt = rest.sort;
+              let className = rest.className;
+              let eDateRest = rest.eDate;
+              let sDateRest = rest.sDate;
+              let pageRowCntRest = rest.pageRowCount;
+              let maxPageCountRest = rest.maxPageCount;
+              let tmpRest = rest.tmp;
+              let fioRest = rest.fio;
+              let depRest = rest.dep;
+
+
+              let mode = document.getElementById('mode').getElementsByTagName('option');
+
+              for (let i = 0; i < mode.length; i++) {
+                  if (mode[i].value === tmpRest) mode[i].selected = true;
+              }
+
+
+              let mode1 = document.getElementById('mode2').getElementsByTagName('option');
+
+              for (let i = 0; i < mode1.length; i++) {
+                  if (mode1[i].value === fioRest) mode1[i].selected = true;
+              }
+
+
+              let mode2 = document.getElementById('mode1').getElementsByTagName('option');
+
+              for (let i = 0; i < mode2.length; i++) {
+                  if (mode2[i].value === depRest) mode2[i].selected = true;
+              }
+
+
+              if(sDateRest.length > 0 && sDateRest !== "1970-01-01")
+                  document.getElementById("startTime").value = sDateRest;
+              else
+                  document.getElementById("startTime").value = "";
+              if(eDateRest.length > 0 && eDateRest !== "2099-01-01")
+                  document.getElementById("endTime").value = eDateRest;
+              else
+                  document.getElementById("endTime").value = "";
+
+              document.getElementById("pageMarkerMax").innerText = Math.ceil(maxPageCountRest/pageRowCntRest);
+
+              if(pageRowCntRest.length > 0) {
+                  let mode = document.getElementById('rowsInPage').getElementsByTagName('option');
+
+                  for (let i = 0; i < mode.length; i++) {
+                      if (mode[i].value === pageRowCntRest) mode[i].selected = true;
+                  }
+              }
+
+              if(Number(document.getElementById("pageMarker").innerText) >= Math.ceil(maxPageCountRest/pageRowCntRest))
+                  document.getElementById("btnDoNext").style.display = "none";
+              else
+                  document.getElementById("btnDoNext").style.display = "";
+
+              if(Number(document.getElementById("pageMarker").innerText) <= 1)
+                  document.getElementById("btnDoPrev").style.display = "none";
+              else
+                  document.getElementById("btnDoPrev").style.display = "";
+
+
+              if(SoRt.replace("DESC", "") === "b.Tcpoa") {
+                  document.getElementById("1").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Actdte") {
+                  document.getElementById("2").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "d.Des") {
+                  document.getElementById("4").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "a.Des") {
+                  document.getElementById("3").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Crtpsnsign") {
+                  document.getElementById("5").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Crtdtesign") {
+                  document.getElementById("6").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Agrpsnsign") {
+                  document.getElementById("7").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Agrdtesign") {
+                  document.getElementById("8").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Apppsnsign") {
+                  document.getElementById("9").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Appdtesign") {
+                  document.getElementById("10").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Exepsnsign") {
+                  document.getElementById("11").classList.add(className);
+              } else if(SoRt.replace("DESC", "") === "b.Exedtesign") {
+                  document.getElementById("12").classList.add(className);
+              }
+
+              var html = "";
+
+              for (let ii = 0; ii < rest.lst.length; ii++) {
+                  let elem = rest.lst[ii];
+
+                  let end = "";
+
+                  let d1 = new Date(elem.Crtdtesign).toLocaleDateString();
+                  if(d1 === "01.01.1901")
+                      d1 = "-";
+                  let d2 = new Date(elem.Agrdtesign).toLocaleDateString();
+                  if(d2 === "01.01.1901")
+                      d2 = "-";
+                  let d3 = new Date(elem.Appdtesign).toLocaleDateString();
+                  if(d3 === "01.01.1901")
+                      d3 = "-";
+                  let d4 = new Date(elem.Exedtesign).toLocaleDateString();// bgcolor="#ffff00"
+                  if(d4 === "01.01.1901")
+                      d4 = "-";
+
+                  html += "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" name=\"list\" type=\"checkbox\" size=\"10px\"></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Tcpoa + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + new Date(elem.Actdte).toLocaleDateString() + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Template + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Dep + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Crtpsnsign + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d1 + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Agrpsnsign + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d2 + "</span></td>" +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Apppsnsign + "</span></td>" +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d3 + "</span></td>" +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Exepsnsign + "</span></td>" +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d4 + "</span></td>" +
+                      end;
+              }
+                  html += " "
+                  document.getElementById("table").innerHTML = html;
+
+          }
+
+          // function isEmpty(str) {
+          //     return (!str || 0 === str.length);
+          // }
+
+          document.getElementById("startTime").oninput = function() {
+              checkAndRun();
+          };
+          document.getElementById("endTime").oninput = function() {
+              checkAndRun();
+          };
+
+          document.getElementById("mode").addEventListener('change',function() {
+              checkAndRun();
+          });
+
+          document.getElementById("mode1").addEventListener('change',function() {
+              checkAndRun();
+          });
+
+          document.getElementById("mode2").addEventListener('change',function() {
+              checkAndRun();
+          });
+
+
+          document.getElementById("1").onclick = function() {
+              if(SoRt === 'b.Tcpoa')
+                  setSort("b.TcpoaDESC");
+              else
+                  setSort("b.Tcpoa");
+          }
+          document.getElementById("2").onclick = function() {
+              if(SoRt === 'b.Actdte')
+                  setSort("b.ActdteDESC");
+              else
+                  setSort("b.Actdte");
+          }
+          document.getElementById("3").onclick = function() {
+              if(SoRt === 'a.Des')
+                  setSort("a.DesDESC");
+              else
+                  setSort("a.Des");
+          }
+          document.getElementById("4").onclick = function() {
+              if(SoRt === 'd.Des')
+                  setSort("d.DesDESC");
+              else
+                  setSort("d.Des");
+
+          }
+          document.getElementById("5").onclick = function() {
+              if(SoRt === 'b.Crtpsnsign')
+                  setSort("b.CrtpsnsignDESC");
+              else
+                  setSort("b.Crtpsnsign");
+          }
+          document.getElementById("6").onclick = function() {
+              if(SoRt === 'b.Crtdtesign')
+                  setSort("b.CrtdtesignDESC");
+              else
+                  setSort("b.Crtdtesign");
+          }
+          document.getElementById("7").onclick = function() {
+              if(SoRt === 'b.Agrpsnsign')
+                  setSort("b.AgrpsnsignDESC");
+              else
+                  setSort("b.Agrpsnsign");
+          }
+          document.getElementById("8").onclick = function() {
+              if(SoRt === 'b.Agrdtesign')
+                  setSort("b.AgrdtesignDESC");
+              else
+                  setSort("b.Agrdtesign");
+          }
+          document.getElementById("9").onclick = function() {
+              if(SoRt === 'b.Apppsnsign')
+                  setSort("b.ApppsnsignDESC");
+              else
+                  setSort("b.Apppsnsign");
+          }
+          document.getElementById("10").onclick = function() {
+              if(SoRt === 'b.Appdtesign')
+                  setSort("b.AppdtesignDESC");
+              else
+                  setSort("b.Appdtesign");
+          }
+          document.getElementById("11").onclick = function() {
+              if(SoRt === 'b.Exepsnsign')
+                  setSort("b.ExepsnsignDESC");
+              else
+                  setSort("b.Exepsnsign");
+          }
+          document.getElementById("12").onclick = function() {
+              if(SoRt === 'b.Exedtesign')
+                  setSort("b.ExedtesignDESC");
+              else
+                  setSort("b.Exedtesign");
+          }
+
+          function setSort(s) {
+              setCookie('sort', s, {secure: true, 'max-age': 3600});
+
+              getRows();
+          }
+
+
+          function setParams() {
+              let m1 = document.getElementById("mode").options[document.getElementById("mode").selectedIndex].value;
+              let m2 = document.getElementById("mode1").options[document.getElementById("mode1").selectedIndex].value;
+              let m3 = document.getElementById("mode2").options[document.getElementById("mode2").selectedIndex].value;
+              let sdate = document.getElementById("startTime").value;
+              let edate = document.getElementById("endTime").value;
+
+               //setCookie('pageRowCount', pageRowCount, {secure: true, 'max-age': 3600});
+              setCookie('tmp', m1, {secure: true, 'max-age': 3600});
+              setCookie('dep', m2, {secure: true, 'max-age': 3600});
+              setCookie('fio', m3, {secure: true, 'max-age': 3600});
+              if(sdate.length > 0)
+                  setCookie('startTime', sdate, {secure: true, 'max-age': 3600});
+              if(edate.length > 0)
+                  setCookie('endTime', edate, {secure: true, 'max-age': 3600});
+
+              getRows();
+          }
+
+          function checkAndRun(name) {
+              let sd = document.getElementById('startTime').value;
+              let ed = document.getElementById('endTime').value;
+              let res = (new Date(sd) < new Date(ed)) || sd.length === 0|| ed.length === 0;
+
+              if(res) {
+                  setParams();
+                  // let sort = document.getElementById('Sort').getElementsByTagName('option');
+
+                  // for (let i = 0; i < sort.length; i++) {
+                  //     if (sort[i].value === name) sort[i].selected = true;
+                  // }
+                  //
+                  // document.getElementById("btnStart").click();
+              }
+          }
+
+          function deleteCookie(name) {
+              setCookie(name, "", {
+                  'max-age': -1
+              })
+          }
+
+          function delParams() {
+              deleteCookie("pageRowCount");
+              deleteCookie("startTime");
+              deleteCookie("endTime");
+              deleteCookie("tmp");
+              deleteCookie("dep");
+              deleteCookie("fio");
+              deleteCookie("sort");
+
+              getRows();
+          }
+      </script>
+      <button  id="btnDoPrev" class="btn btn-info">Назад</button>
+      <span style="background-color: lightgray; color: black; vertical-align: middle; text-align: center; padding: 8px; margin-left: 5px; margin-right: 5px">
+      Страница <span id="pageMarker">1</span>  из <span id="pageMarkerMax"></span>
+      </span>
+      <button id="btnDoNext" class="btn btn-info">Вперед</button>
+      <script>
+          document.getElementById("btnDoPrev").onclick = function() {
+          let pageMrk = document.getElementById("pageMarker").innerText;
+          if(((pageMrk) - 1) >= 1)
+              document.getElementById("pageMarker").innerText = (Number(pageMrk) - 1);
+          getRows();
+          }
+
+          document.getElementById("btnDoNext").onclick = function() {
+            let pageMrk = document.getElementById("pageMarker").innerText;
+            document.getElementById("pageMarker").innerText = (Number(pageMrk) + 1);
+            getRows();
+          }
+
+      </script>
+  </div>
+</div>
+</body>
+</html>

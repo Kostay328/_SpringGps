@@ -2,16 +2,18 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org"
       xmlns:sec="https://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
 <head>
-    <title>Spring Security Example </title>
+    <title>Авторизация</title>
     <div th:replace="fragments/header :: links"></div>
     <link type='text/css' th:href="@{css/login.css}" href="" rel="stylesheet" id="login-css">
 </head>
 <body>
-    <div th:if="${param.error}">
-        Invalid username and password.
+    <div style="padding-top: 50px;">
+        <div style="width: 300px;height: 80px;text-align: center;margin: auto;padding: 15px;background-color: lightgrey;border: 3px solid black;border-radius: 10px;color: red;" th:if="${param.error}">
+            Введены неверный логин или пароль!
+        </div>
     </div>
     <div th:if="${param.logout}">
-        You have been logged out.
+        Вы вышли из системмы
     </div>
     <div class="wrapper fadeInDown">
         <div id="formContent">
@@ -25,9 +27,9 @@
                 <input type="submit" class="btn btn-primary btn-lg" value="Войти">
             </form>
 
-            <div id="formFooter">
-                <a class="underlineHover" href="#">Забыли пароль?</a>
-            </div>
+<!--            <div id="formFooter">-->
+<!--                <a class="underlineHover" href="#">Забыли пароль?</a>-->
+<!--            </div>-->
 
         </div>
     </div>

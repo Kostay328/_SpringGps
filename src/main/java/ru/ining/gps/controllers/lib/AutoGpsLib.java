@@ -1,12 +1,24 @@
 package ru.ining.gps.controllers.lib;
 
+import com.microsoft.sqlserver.jdbc.SQLServerBulkCSVFileRecord;
+import com.microsoft.sqlserver.jdbc.SQLServerBulkCopy;
+import com.microsoft.sqlserver.jdbc.SQLServerBulkCopyOptions;
+import org.apache.ibatis.annotations.Param;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import ru.ining.gps.controllers.MainController;
 import ru.ining.gps.entity.CarMillage;
 import ru.ining.gps.entity.DevInfo;
+import ru.ining.gps.entity.DocElem;
 import ru.ining.gps.entity.Marker;
 import ru.ining.gps.mappers.CarMapper;
 import ru.ining.gps.mappers.DevMapper;
 
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.sql.*;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.ParseException;
@@ -14,6 +26,7 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.Date;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -139,6 +152,20 @@ public class AutoGpsLib {
         return res + " }";
     }
 
+    public static void wrFile(String connString, int tcpat, DataInputStream dis) throws Exception {
+        byte[] pdfData = dis.readAllBytes();
+//        dis.readFully(pdfData);  // read from file into byte[] array
+        dis.close();
+
+        Connection dbConnection = DriverManager.getConnection(connString);
+        PreparedStatement ps = dbConnection.prepareStatement(
+                "UPDATE Tcpatmst " +
+                        "SET Docx = ? " +
+                        "WHERE Tcpat = " + tcpat);
+        ps.setBytes(1, pdfData);
+        ps.executeUpdate();
+    }
+
 
     public static String getMarkersLst(List<DevInfo> devInfoList) {
         String res =
@@ -185,6 +212,212 @@ public class AutoGpsLib {
                 .map(date -> date.format(DateTimeFormatter.ofPattern(form)))
                 .collect(Collectors.toList());
         return dateStringsLst;
+    }
+
+    public static boolean editDevice(String url, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload) {
+        try {
+            Connection dbConnection = DriverManager.getConnection(url);
+            PreparedStatement ps = dbConnection.prepareStatement(
+                    "UPDATE Tcpatmst " +
+                            "SET des = ?, crtdoctyp = ?, aprdoctyp = ?, agrdoctyp = ?, exedoctyp = ?, lifetime = ?, savetime = ?, docx = ? " +
+                            "WHERE tcpat = " + tcpa);
+            ps.setString(1, des);
+            ps.setInt(2, crt);
+            ps.setInt(3, app);
+            ps.setInt(4, agr);
+            ps.setInt(5, exe);
+            ps.setInt(6, lifetime);
+            ps.setInt(7, savetime);
+            ps.setBytes(8, fileupload.getBytes());
+            ps.executeUpdate();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    return true;
+    }
+
+
+    public static boolean addDevice(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload) {
+        try {
+            Connection dbConnection = DriverManager.getConnection(url);
+            PreparedStatement ps = dbConnection.prepareStatement(
+                    "INSERT INTO Tcpatmst " +
+                            "(entby, tcpat, des, crtdoctyp, aprdoctyp, agrdoctyp, exedoctyp, lifetime, savetime, docx, entdte) " +
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?);");
+            ps.setString(1, entby);
+            ps.setInt(2, tcpa);
+            ps.setString(3, des);
+            ps.setInt(4, crt);
+            ps.setInt(5, app);
+            ps.setInt(6, agr);
+            ps.setInt(7, exe);
+            ps.setInt(8, lifetime);
+            ps.setInt(9, savetime);
+            ps.setBytes(10, fileupload.getBytes());
+            ps.setDate(11, new java.sql.Date(new java.util.Date().getTime()));
+            ps.executeUpdate();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return true;
+    }
+
+    public static MainController.Tcpatmst getTcpatmst(String url, int Tcpat) {
+        MainController.Tcpatmst res = new MainController.Tcpatmst();
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            Connection conn = DriverManager.getConnection(url);
+            String sql = "SELECT Tcpat, Des, Entby, Lstchgby, Entdte, Lstchgdte, Rcdsts, Crtdoctyp, Agrdoctyp, Aprdoctyp, Exedoctyp, Lifetime, Savetime, Docx FROM Tcpatmst WHERE Tcpat = " + Tcpat;
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+
+
+            rs.next();
+            res.setTcpat(rs.getInt("Tcpat"));
+            res.setDes(rs.getString("Des"));
+            res.setEntby(rs.getString("Entby"));
+            res.setLstchgby(rs.getString("Lstchgby"));
+            res.setEntdte(rs.getDate("Entdte"));
+            res.setLstchgdte(rs.getDate("Lstchgdte"));
+            res.setRcdsts(rs.getInt("Rcdsts"));
+            res.setCrtdoctyp(rs.getInt("Crtdoctyp"));
+            res.setAgrdoctyp(rs.getInt("Agrdoctyp"));
+            res.setAprdoctyp(rs.getInt("Aprdoctyp"));
+            res.setExedoctyp(rs.getInt("Exedoctyp"));
+            res.setLifetime(rs.getInt("Lifetime"));
+            res.setSavetime(rs.getInt("Savetime"));
+            res.setDocx(rs.getBytes("Docx"));
+
+        } catch (Exception throwables) {
+            throwables.printStackTrace();
+        }
+
+        return res;
+    }
+
+
+    public static List<MainController.Tcpatmst_> getTcpatmstLst(String url) {
+        List<MainController.Tcpatmst_> resLst = new ArrayList<>();
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            Connection conn = DriverManager.getConnection(url);
+            String sql = "SELECT Tcpat, Des, Entby, Lstchgby, Entdte, Lstchgdte, Rcdsts, Crtdoctyp, Agrdoctyp, Aprdoctyp, Exedoctyp, Lifetime, Savetime FROM Tcpatmst";
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+
+            while(rs.next()) {
+                MainController.Tcpatmst_ res = new MainController.Tcpatmst_();
+                res.setTcpat(rs.getInt("Tcpat"));
+                res.setDes(rs.getString("Des"));
+                res.setEntby(rs.getString("Entby"));
+                res.setLstchgby(rs.getString("Lstchgby"));
+                res.setEntdte(rs.getDate("Entdte"));
+                res.setLstchgdte(rs.getDate("Lstchgdte"));
+                res.setRcdsts(rs.getInt("Rcdsts"));
+                res.setCrtdoctyp(rs.getInt("Crtdoctyp"));
+                res.setAgrdoctyp(rs.getInt("Agrdoctyp"));
+                res.setAprdoctyp(rs.getInt("Aprdoctyp"));
+                res.setExedoctyp(rs.getInt("Exedoctyp"));
+                res.setLifetime(rs.getInt("Lifetime"));
+                res.setSavetime(rs.getInt("Savetime"));
+
+                resLst.add(res);
+            }
+        } catch (Exception throwables) {
+            throwables.printStackTrace();
+        }
+
+        return resLst;
+    }
+
+    public static byte[] getDocx(String url, int Tcpat) {
+        byte[] res = new byte[]{};
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            Connection conn = DriverManager.getConnection(url);
+            String sql = "SELECT Docx FROM Tcpatmst WHERE Tcpat = " + Tcpat;
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+
+
+            rs.next();
+            res = rs.getBytes(1);
+
+        } catch (Exception throwables) {
+            throwables.printStackTrace();
+        }
+
+        return res;
+    }
+
+    public static List<DocElem> getDocElem(String url, String order, Date startTime, Date endTime, int i1, int i2, String dep, String tmp, String fio) {
+        List<DocElem> res = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        String filtr = " ";
+        if(dep.length() > 0)
+            filtr += " and d.Brn = " + dep.split("_")[0] + " and d.Cln = " + dep.split("_")[1];
+        if(tmp.length() > 0)
+            filtr += " and a.Tcpat = " + tmp;
+        if(fio.length() > 0)
+            filtr += " and b.Tcpoa = " + fio;
+
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            Connection conn = DriverManager.getConnection(url);
+            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtdtesign, b.Agrpsnsign, b.Agrdtesign, b.Apppsnsign, b.Appdtesign, b.Exepsnsign, b.Exedtesign, b.Entdte " +
+                    "from Tcpoahdr b " +
+                    " left join Tcpatmst a on b.Tcpat = a.Tcpat " +
+                    " left join Psnbrn c on b.Psn=c.Psn and b.Tabnum=c.Tabnum and c.Rcdsts < 9 " +
+                    " left join Clnmst d on c.Cln=d.Cln and c.Ptnbrn=d.Brn " +
+                    "WHERE b.Actdte > '"+sdf.format(startTime)+"' AND b.Actdte < '"+sdf.format(endTime) +"'"+
+                    filtr +
+                    " ORDER BY " + order +
+                    " offset " + i1 + " rows " +
+                    "fetch next " + i2 + " rows only";
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+
+
+            while (rs.next()) {
+                int Tcpoa = rs.getInt("Tcpoa");
+                Date Actdte = new java.util.Date(rs.getTimestamp("Actdte").getTime());
+                String Dep = rs.getString("Dep");
+                String Template = rs.getString("Template");
+
+
+                String Apppsnsign = rs.getString("Apppsnsign");
+                String Agrpsnsign = rs.getString("Agrpsnsign");
+                String Crtpsnsign = rs.getString("Crtpsnsign");
+                String Exepsnsign = rs.getString("Exepsnsign");
+
+                Date Appdtesign = new java.util.Date(rs.getTimestamp("Appdtesign").getTime());
+                Date Agrdtesign = new java.util.Date(rs.getTimestamp("Agrdtesign").getTime());
+                Date Crtdtesign = new java.util.Date(rs.getTimestamp("Crtdtesign").getTime());
+                Date Exedtesign = new java.util.Date(rs.getTimestamp("Exedtesign").getTime());
+
+
+                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtdtesign, Agrpsnsign, Agrdtesign, Apppsnsign, Appdtesign, Exepsnsign, Exedtesign));
+            }
+        } catch (Exception throwables) {
+            throwables.printStackTrace();
+        }
+
+        return res;
+    }
+
+    public static int getTcpoaLogin(String url) {
+        int res = -1;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String usr = auth.getName();
+
+        try {
+            Connection conn = DriverManager.getConnection(url);
+            ResultSet rs = conn.createStatement().executeQuery("SELECT Psn FROM Psnmst WHERE Email = '"+usr+"'");
+
+            rs.next();
+
+            res = rs.getInt("Psn");
+
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        return res;
     }
 
     static Row fillEmptyLst(Date startTime, Date endTime, Row row, String no) throws ParseException {

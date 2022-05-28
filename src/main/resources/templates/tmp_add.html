@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Список документов</title>
+</head>
+<body>
+
+<div layout:fragment="title" style="margin-left: 50px">
+  Создание шаблона
+</div>
+
+<div layout:fragment="content">
+  <div class="container" style="margin: 20px">
+      <form th:action="@{/add_tmp_post}" method="post" style="display: inline" enctype="multipart/form-data">
+        <input type="hidden" name="entby" id="entby" th:value="${user}">
+        <nobr>
+  <!--        <input type="hidden" name="entdte" id="entdte">-->
+          Шаблон
+          <input type="number" id="tcpa" name="tcpa" style="width: 40px; margin-right: 819px">
+          Название
+          <input type="text" id="des" name="des" style="width: 350px;">
+        </nobr>
+        <br>
+        <br>
+        <nobr>
+          Создатель
+          <select id="crt" name="crt" style="margin-right: 30px">
+            <option value="0">Нет</option>
+            <option value="1">Руководитель Предприятия</option>
+            <option value="2">Руководитель Региона</option>
+            <option value="3">Руководитель Отдела</option>
+            <option value="4">Сотрудник</option>
+            <option value="10">Все</option>
+            <option value="21">Отдел персонала</option>
+            <option value="22">Транспортны отдел</option>
+            <option value="23">Юридический отдел</option>
+          </select>
+          Согласовать
+          <select id="app" name="app" style="margin-right: 30px">
+            <option value="0">Нет</option>
+            <option value="1">Руководитель Предприятия</option>
+            <option value="2">Руководитель Региона</option>
+            <option value="3">Руководитель Отдела</option>
+            <option value="4">Сотрудник</option>
+            <option value="10">Все</option>
+            <option value="21">Отдел персонала</option>
+            <option value="22">Транспортны отдел</option>
+            <option value="23">Юридический отдел</option>
+          </select>
+          Утвердить
+          <select id="agr" name="agr" style="margin-right: 30px">
+            <option value="0">Нет</option>
+            <option value="1">Руководитель Предприятия</option>
+            <option value="2">Руководитель Региона</option>
+            <option value="3">Руководитель Отдела</option>
+            <option value="4">Сотрудник</option>
+            <option value="10">Все</option>
+            <option value="21">Отдел персонала</option>
+            <option value="22">Транспортны отдел</option>
+            <option value="23">Юридический отдел</option>
+          </select>
+          Исполнить
+          <select id="exe" name="exe">
+            <option value="0">Нет</option>
+            <option value="1">Руководитель Предприятия</option>
+            <option value="2">Руководитель Региона</option>
+            <option value="3">Руководитель Отдела</option>
+            <option value="4">Сотрудник</option>
+            <option value="10">Все</option>
+            <option value="21">Отдел персонала</option>
+            <option value="22">Транспортны отдел</option>
+            <option value="23">Юридический отдел</option>
+          </select>
+        </nobr>
+        <br><br>
+        <nobr>
+          В архив (мес.)
+          <input type="number" id="lifetime" name="lifetime" style="width: 40px; margin-right: 1061px">
+          Хранить (лет)
+          <input type="number" id="savetime" name="savetime" style="width: 40px;">
+        </nobr>
+        <br>
+        <br>
+
+        <input id="fileupload" type="file" name="fileupload"/><br>
+        <br>
+        <button id="btnStart" type="submit" class="btn btn-success">Создать</button>
+      </form>
+    <div style="vertical-align: middle; text-align: center;">
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

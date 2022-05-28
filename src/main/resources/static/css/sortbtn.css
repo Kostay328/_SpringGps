@@ -1,0 +1,51 @@
+/*.txt {*/
+/*    !*font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";*!*/
+/*    !*font-size: 1rem;*!*/
+/*    !*line-height: 1.5;*!*/
+/*    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";*/
+/*    font-size: 1rem;*/
+/*    font-weight: 400;*/
+/*    line-height: 1.5;*/
+/*    color: #212529;*/
+/*    text-align: left;*/
+/*}*/
+
+.second button {
+    outline: none;
+    background: #fff;
+    border: 1px solid #eee;
+    cursor: pointer;
+    overflow: hidden;
+    padding: .75em 2.25em .75em 1em;
+    position: relative;
+}
+
+.second button:before,
+.second button:after {
+    border-style: solid;
+    border-width: 11px 5px;
+    border-color: transparent;
+    content: '';
+    height: 0;
+    position: absolute;
+    right: 10px;
+    width: 0;
+}
+
+.second button:before {
+    border-bottom-color: #ccc;
+    top: 0;
+}
+
+.second button:after {
+    border-top-color: #ccc;
+    bottom: 0;
+}
+
+.second .asc:before {
+    border-bottom-color: #777;
+}
+
+.second .desc:after {
+    border-top-color: #777;
+}

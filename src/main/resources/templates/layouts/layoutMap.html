@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org"
+      xmlns:sec="https://www.thymeleaf.org/thymeleaf-extras-springsecurity3"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+  <meta charset="UTF-8">
+  <title layout:title-pattern="$LAYOUT_TITLE - $CONTENT_TITLE">GPS</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <th:block th:fragment="links">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+          crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+            integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+            integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+            integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+            crossorigin="anonymous"></script>
+  </th:block>
+</head>
+<body>
+<div class="map_cont"></div>
+<div class="container-fluid">
+  <div th:replace="fragments/header :: header"></div>
+  <div class="row h3">
+    <div layout:fragment="title"></div>
+  </div>
+  <div layout:fragment="content">
+    <h1>Static content for prototyping purposes only</h1>
+    <p>
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+      Praesent scelerisque neque neque, ac elementum quam dignissim interdum.
+      Phasellus et placerat elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+      Praesent scelerisque neque neque, ac elementum quam dignissim interdum.
+      Phasellus et placerat elit.
+    </p>
+  </div>
+  <footer class="bg-light text-center text-lg-start">
+    <!-- Copyright -->
+    <div class="text-center p-3 mt-3" style="background-color: rgba(0, 0, 0, 0.2); flex: 0 0 auto;">
+      © <span th:text="${#dates.format(#dates.createNow(), 'yyyy')}"></span>
+      <a class="text-dark" href="http://www.ining.ru/new/">Интехнософт</a>
+    </div>
+    <!-- Copyright -->
+  </footer>
+</div>
+</body>
+</html>

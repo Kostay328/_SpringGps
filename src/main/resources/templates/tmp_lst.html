@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Test</title>
+</head>
+<body onload="getRows()">
+
+<div style="margin-left: 52px" layout:fragment="title">
+  Путевые Листы
+</div>
+
+
+
+
+<div layout:fragment="content" onload="getRows()">
+      <table class="table mt-3">
+          <thead>
+              <tr>
+                  <th><nobr>Номер шаблона</nobr></th>
+                  <th><nobr>Название</nobr></th>
+                  <th><nobr>Автор</nobr></th>
+                  <th><nobr>Дата создания</nobr></th>
+                  <th><nobr>Автор</nobr></th>
+                  <th><nobr>Согласовать</nobr></th>
+                  <th><nobr>Утвердить</nobr></th>
+                  <th><nobr>Исполнитель</nobr></th>
+                  <th><nobr>В архив(мес)</nobr></th>
+                  <th><nobr>Хранить(лет)</nobr></th>
+              </tr>
+          </thead>
+          <tbody>
+          <tr th:each="tmp : ${tmpList}">
+              <th th:text="${tmp.Tcpat}"></th>
+              <th th:text="${tmp.Des}"></th>
+              <th th:text="${tmp.Entby}"></th>
+              <th th:text="${tmp.Entdte}"></th>
+              <th th:text="${tmp.CrtdoctypStr}"></th>
+              <th th:text="${tmp.AgrdoctypStr}"></th>
+              <th th:text="${tmp.AprdoctypStr}"></th>
+              <th th:text="${tmp.ExedoctypStr}"></th>
+              <th th:text="${tmp.Lifetime}"></th>
+              <th th:text="${tmp.Savetime}"></th>
+          </tr>
+          </tbody>
+      </table>
+  </div>
+</div>
+</body>
+</html>
