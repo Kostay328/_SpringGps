@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Документ</title>
+
+    <style>
+        .popup-fade {
+            display: none;
+        }
+        .popup-fade:before {
+            content: '';
+            background: #000;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.7;
+            z-index: 9999;
+        }
+        .popup {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            padding-top: 8px;
+            padding-right: 20px;
+            padding-left: 20px;
+            padding-bottom: 20px;
+            width: 450px;
+            margin-left: -225px;
+            margin-top: 100px;
+            background: #fff;
+            border: 1px solid orange;
+            border-radius: 4px;
+            z-index: 99999;
+            opacity: 1;
+        }
+        .popup-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div layout:fragment="title" style="margin-left: 50px">
+  Редактирование документа
+</div>
+
+<div layout:fragment="content">
+    <div class="popup-fade">
+        <div class="popup">
+            <button style="margin-left: 350px" onclick="fadeOut('.popup-fade')" class="btn btn-danger btn-sm">Закрыть</button>
+            <br>
+            <br>
+            Подтвердите пароль
+            <input type="password" id="pass">
+            <br>
+            <br>
+            <form th:action="@{/add_sign}" method="post" style="display: inline; vertical-align: top;" enctype="multipart/form-data" onsubmit="return passCheck(document.getElementById('pass').value)">
+                <input th:value="${tcpoa}" type="hidden" name="tcpoa">
+                <input th:value="${psn}" id="psn" type="hidden" name="psn">
+                <button th:if="${params}" class="btn btn-info" style="margin-right: 5px">Подписать</button>
+            </form>
+        </div>
+    </div>
+
+  <div class="container" style="margin: 20px">
+      <div style="display: inline-block">
+          <iframe th:attr="src=${doc_src}" width="500" height="750"></iframe>
+          <div style="display: inline-block; margin-left: 50px; vertical-align: top;">
+          <form th:action="@{/edit_doc_db}" method="post" style="display: inline;padding: 5px; vertical-align: top;" enctype="multipart/form-data">
+              Документ
+              <input th:value="${tcpoa}" type="text" id="tcpoa" name="tcpoa" style="width: 80px; margin-bottom: 20px" readonly>
+              <br>
+              Шаблон
+              <input th:value="${tmp}" type="text" id="tmp"  style="width: 400px; margin-bottom: 20px" readonly>
+              <br>
+              Дата создания
+              <input th:value="${entdte}" type="text" id="date" style="width: 200px;margin-bottom: 20px" readonly>
+
+
+              <div th:if="${sdteflg}">
+                  <br>
+                  Дата с
+                  <input  th:value="${date1}" type="date" id="date1" name="date1" style="width: 200px;margin-bottom: 20px">
+              </div>
+              <input th:if="${!sdteflg}" value="" type="hidden" name="date1">
+
+
+              <div th:if="${sdteflg}">
+                  <br>
+                  Дата по
+                  <input th:value="${date2}" type="date" id="date2" name="date2" style="width: 200px;margin-bottom: 20px">
+              </div>
+              <input th:if="${!sdteflg}" value="" type="hidden" name="date2">
+
+
+              <div th:if="${cntflg}">
+                  <br>
+                  Количество
+                  <input th:value="${qnt}" type="number" id="qnt" name="qnt" style="width: 50px;margin-bottom: 20px">
+              </div>
+              <input th:if="${!cntflg}" value="" type="hidden" name="qnt">
+<!--                  <input type="hidden" name="qnt" value="0">-->
+<!--                  <br>-->
+<!--                  <input type="number" id="ptn" name="ptn" style="width: 100px;margin-bottom: 20px">-->
+
+<!--                  <select style="height: 28px;margin-bottom: 20px" id="tmp" name="tmp">-->
+<!--                      <option th:each="tmp : ${tmp_}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>-->
+<!--                  </select>-->
+              <br>
+              <button id="btnStart" type="submit" class="btn btn-success">Сохранить</button>
+          </form>
+
+              <button th:if="${params}" id="btnSign" class="btn btn-info" style="margin-right: 5px" onclick="fadeIn('.popup-fade')">Подписать</button>
+
+              <button th:if="${!params}"  class="btn btn-info" style="margin-right: 5px" disabled>Подписать</button>
+
+              <button class="btn btn-danger" onclick="document.location='/'">Выйти</button>
+          </div>
+        </div>
+      <script>
+          function formatParams(params){
+              return "?" + Object
+                  .keys(params)
+                  .map(function(key){
+                      return key + "=" + encodeURIComponent(params[key])
+                  })
+                  .join("&")
+          }
+
+          function passCheck(password){
+              let xhr = new XMLHttpRequest();
+
+              let params = {
+                  pass: password,
+                  psn: document.getElementById("psn").value
+              }
+
+              xhr.open('GET', '/check_pass' + formatParams(params), false);
+              xhr.send();
+
+              let rest = JSON.parse(xhr.responseText);
+
+              if(!rest)
+                  alert("Вы ввели неверный пароль!")
+
+              return rest;
+          }
+      </script>
+      <script>
+          function fadeOut(el) {
+              var opacity = 1;
+              var timer = setInterval(function() {
+                  if(opacity <= 0.1) {
+                      clearInterval(timer);
+                      document.querySelector(el).style.display = "none";
+                  }
+                  document.querySelector(el).style.opacity = opacity;
+                  opacity -= opacity;
+              }, 10);
+          }
+
+          function fadeIn(el) {
+              var opacity = 1;
+              document.querySelector(el).style.display = "block";
+              var timer = setInterval(function() {
+                  if(opacity >= 1) {
+                      clearInterval(timer);
+                  }
+                  document.querySelector(el).style.opacity = opacity;
+                  opacity += opacity;
+              }, 10);
+          }
+      </script>
+    <div style="vertical-align: middle; text-align: center;">
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

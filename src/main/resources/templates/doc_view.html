@@ -2,7 +2,7 @@
 <html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
       xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
-  <title>Список документов</title>
+  <title>Документы</title>
 </head>
 <body>
 
@@ -14,10 +14,11 @@
   <div class="container" style="margin: 20px">
     <div style="vertical-align: middle; text-align: center;">
 <!--      <iframe src="https://drive.google.com/file/d/1g7dU2h2PHwQDKmpfgQMNT66wCx4tGzEu/preview" width="640" height="480" allow="autoplay"></iframe>-->
-      <iframe src="http://localhost:8080/pdf" width="1500" height="1500"></iframe>
-      <object data="/images/doc.pdf" type="application/pdf" width="100%" height="100%">
-        <p>Alternative text - include a link <a href="/images/doc.pdf">to the PDF!</a></p>
-      </object>
+<!--      <iframe src="http://localhost:8080/pdf" width="1500" height="1500"></iframe>-->
+<!--      <object data="/images/doc.pdf" type="application/pdf" width="100%" height="100%">-->
+<!--        <p>Alternative text - include a link <a href="/images/doc.pdf">to the PDF!</a></p>-->
+<!--      </object>-->
+        <div th:utext="${abc}"></div>
     </div>
     <nobr>
       <button style="margin-top: 5px; margin-left: 145px" type="submit" class="btn btn-success">Распечатать</button>

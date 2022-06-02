@@ -17,10 +17,11 @@
 <body>
     <div class="row" th:fragment="header">
         <nav class="nav">
-            <a class="nav-link" href="/">Мониторинг</a>
-            <a class="nav-link" href="/first">Отчет по пробегам</a>
-            <a class="nav-link" href="/devinfo">Текущее положение машин</a>
-            <a class="nav-link" href="#">Link</a>
+            <a class="nav-link" href="/">Документы</a>
+            <a class="nav-link" href="/multi_add_doc">Пакетное создание</a>
+            <a class="nav-link" href="/tmp_lst">Шаблоны </a>
+            <a class="nav-link" href="/">Сотрудники  </a>
+            <a class="nav-link" href="/">Подразделения </a>
             <form th:action="@{/logout}" method="post">
                 <input type="submit" class="btn btn-link" value="Выход">
             </form>

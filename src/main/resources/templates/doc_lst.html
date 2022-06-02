@@ -2,12 +2,12 @@
 <html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
       xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
-  <title>Test</title>
+  <title>Документы</title>
 </head>
 <body onload="getRows()">
 
 <div style="margin-left: 52px" layout:fragment="title">
-  Путевые Листы
+  Список документов
 </div>
 
 
@@ -105,7 +105,8 @@
   <div class="container" style="margin: 20px">
       <nobr>
           <button style="margin-bottom: 5px" type="submit" id="on_sign" class="btn btn-success">На подпись</button>
-          <button style="margin-bottom: 5px" type="submit" id="sign_selected" class="btn btn-success">Подписать выделенные</button>
+          <button style="margin-bottom: 5px; margin-right: 20px" type="submit" id="sign_selected" class="btn btn-success">Подписать выделенные</button>
+          <button style="margin-bottom: 5px" class="btn btn-info" onclick="document.location='/add_doc'">Добавить</button>
       </nobr>
       <nobr>
           <input style="height: 28px" type="date" id="startTime" name="startTime">
@@ -116,12 +117,12 @@
               <option th:each="tmp : ${template}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>
           </select>
           <span> Отдел:</span>
-          <select style="height: 28px" id="mode1" name="mode">
-              <option value="">Все отдел</option>
+          <select style="height: 28px" id="mode1" name="mode"1>
+              <option value="">Все отделы</option>
               <option th:each="dep : ${deps}" th:value="${dep.key12}" th:text="${dep.val}"></option>
           </select>
           <span> Автор ФИО:</span>
-          <select style="height: 28px" id="mode2" name="mode">
+          <select style="height: 28px" id="mode2" name="mode2">
               <option value="">Все имена</option>
               <option th:each="fio : ${FIOs}" th:value="${fio.key1}" th:text="${fio.value}"></option>
           </select>
@@ -196,7 +197,7 @@
 
               let xhr = new XMLHttpRequest();
 
-              xhr.open('GET', '/get_routs_js?pageMrk=' + (Number(document.getElementById("pageMarker").innerText) - 1), false);
+              xhr.open('GET', '/get_docs_lst?pageMrk=' + (Number(document.getElementById("pageMarker").innerText) - 1), false);
               //xhr.open('GET', '/get_routs_js', false);
               xhr.send();
 
@@ -272,19 +273,19 @@
                   document.getElementById("4").classList.add(className);
               } else if(SoRt.replace("DESC", "") === "a.Des") {
                   document.getElementById("3").classList.add(className);
-              } else if(SoRt.replace("DESC", "") === "b.Crtpsnsign") {
+              } else if(SoRt.replace("DESC", "") === "b.Crtpsndessign") {
                   document.getElementById("5").classList.add(className);
               } else if(SoRt.replace("DESC", "") === "b.Crtdtesign") {
                   document.getElementById("6").classList.add(className);
-              } else if(SoRt.replace("DESC", "") === "b.Agrpsnsign") {
+              } else if(SoRt.replace("DESC", "") === "b.Agrpsndessign") {
                   document.getElementById("7").classList.add(className);
               } else if(SoRt.replace("DESC", "") === "b.Agrdtesign") {
                   document.getElementById("8").classList.add(className);
-              } else if(SoRt.replace("DESC", "") === "b.Apppsnsign") {
+              } else if(SoRt.replace("DESC", "") === "b.Apppsndessign") {
                   document.getElementById("9").classList.add(className);
               } else if(SoRt.replace("DESC", "") === "b.Appdtesign") {
                   document.getElementById("10").classList.add(className);
-              } else if(SoRt.replace("DESC", "") === "b.Exepsnsign") {
+              } else if(SoRt.replace("DESC", "") === "b.Exepsndessign") {
                   document.getElementById("11").classList.add(className);
               } else if(SoRt.replace("DESC", "") === "b.Exedtesign") {
                   document.getElementById("12").classList.add(className);
@@ -299,29 +300,29 @@
 
                   let d1 = new Date(elem.Crtdtesign).toLocaleDateString();
                   if(d1 === "01.01.1901")
-                      d1 = "-";
+                      d1 = "";
                   let d2 = new Date(elem.Agrdtesign).toLocaleDateString();
                   if(d2 === "01.01.1901")
-                      d2 = "-";
+                      d2 = "";
                   let d3 = new Date(elem.Appdtesign).toLocaleDateString();
                   if(d3 === "01.01.1901")
-                      d3 = "-";
+                      d3 = "";
                   let d4 = new Date(elem.Exedtesign).toLocaleDateString();// bgcolor="#ffff00"
                   if(d4 === "01.01.1901")
-                      d4 = "-";
+                      d4 = "";
 
                   html += "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" name=\"list\" type=\"checkbox\" size=\"10px\"></td> " +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Tcpoa + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><button className=\"btn btn-info\"  onclick=\"document.location='/edit_doc?tcpoa=" + elem.Tcpoa + "'\" style=\"width: 60px;\">"+elem.Tcpoa+"</button></td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + new Date(elem.Actdte).toLocaleDateString() + "</span></td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Template + "</span></td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Dep + "</span></td> " +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Crtpsnsign + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Crtpsndessign + "</span></td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d1 + "</span></td> " +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Agrpsnsign + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Agrpsndessign + "</span></td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d2 + "</span></td>" +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Apppsnsign + "</span></td>" +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Apppsndessign + "</span></td>" +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d3 + "</span></td>" +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Exepsnsign + "</span></td>" +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Exepsndessign + "</span></td>" +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d4 + "</span></td>" +
                       end;
               }
@@ -380,10 +381,10 @@
 
           }
           document.getElementById("5").onclick = function() {
-              if(SoRt === 'b.Crtpsnsign')
-                  setSort("b.CrtpsnsignDESC");
+              if(SoRt === 'b.Crtpsndessign')
+                  setSort("b.CrtpsndessignDESC");
               else
-                  setSort("b.Crtpsnsign");
+                  setSort("b.Crtpsndessign");
           }
           document.getElementById("6").onclick = function() {
               if(SoRt === 'b.Crtdtesign')
@@ -392,10 +393,10 @@
                   setSort("b.Crtdtesign");
           }
           document.getElementById("7").onclick = function() {
-              if(SoRt === 'b.Agrpsnsign')
-                  setSort("b.AgrpsnsignDESC");
+              if(SoRt === 'b.Agrpsndessign')
+                  setSort("b.AgrpsndessignDESC");
               else
-                  setSort("b.Agrpsnsign");
+                  setSort("b.Agrpsndessign");
           }
           document.getElementById("8").onclick = function() {
               if(SoRt === 'b.Agrdtesign')
@@ -404,10 +405,10 @@
                   setSort("b.Agrdtesign");
           }
           document.getElementById("9").onclick = function() {
-              if(SoRt === 'b.Apppsnsign')
-                  setSort("b.ApppsnsignDESC");
+              if(SoRt === 'b.Apppsndessign')
+                  setSort("b.ApppsndessignDESC");
               else
-                  setSort("b.Apppsnsign");
+                  setSort("b.Apppsndessign");
           }
           document.getElementById("10").onclick = function() {
               if(SoRt === 'b.Appdtesign')
@@ -416,10 +417,10 @@
                   setSort("b.Appdtesign");
           }
           document.getElementById("11").onclick = function() {
-              if(SoRt === 'b.Exepsnsign')
-                  setSort("b.ExepsnsignDESC");
+              if(SoRt === 'b.Exepsndessign')
+                  setSort("b.ExepsndessignDESC");
               else
-                  setSort("b.Exepsnsign");
+                  setSort("b.Exepsndessign");
           }
           document.getElementById("12").onclick = function() {
               if(SoRt === 'b.Exedtesign')

@@ -1,20 +1,31 @@
 package ru.ining.gps.controllers.lib;
 
-import com.microsoft.sqlserver.jdbc.SQLServerBulkCSVFileRecord;
-import com.microsoft.sqlserver.jdbc.SQLServerBulkCopy;
-import com.microsoft.sqlserver.jdbc.SQLServerBulkCopyOptions;
-import org.apache.ibatis.annotations.Param;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+//from  w  w w.  java  2  s . c o m
+import javax.imageio.ImageIO;
+import javax.swing.JEditorPane;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import fr.opensagres.poi.xwpf.converter.pdf.PdfConverter;
+import fr.opensagres.poi.xwpf.converter.pdf.PdfOptions;
+import gui.ava.html.image.generator.HtmlImageGenerator;
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.util.Units;
+import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import ru.ining.gps.controllers.MainController;
-import ru.ining.gps.entity.CarMillage;
-import ru.ining.gps.entity.DevInfo;
-import ru.ining.gps.entity.DocElem;
-import ru.ining.gps.entity.Marker;
+import ru.ining.gps.entity.*;
 import ru.ining.gps.mappers.CarMapper;
 import ru.ining.gps.mappers.DevMapper;
+import ru.ining.gps.mssqlmappers.UnionMapper;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -27,13 +38,14 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Date;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * Hello world!
- */
 public class AutoGpsLib {
+    private static final int WIDTH = 1024;
+    private static final String IMAGE_FORMAT = "png";
+
     private static DecimalFormat df1 = new DecimalFormat("#.#");
 
     public static class MillageDuration {
@@ -128,29 +140,30 @@ public class AutoGpsLib {
         }
     }
 
+    public static String getSign(String psn, Date date, UnionMapper unionMapper){
+        Psnmst psnmst = unionMapper.getPsnmst(psn);
 
-    public static String initMap() {
-        String res =
-                "         let map;\n" +
-                        "        function initMap() {\n" +
-                        "            map = new google.maps.Map(document.getElementById(\"map\"), {\n" +
-                        "                 center: { lat: 55.10948, lng: 38.749325 },\n" +
-                        "                zoom: 12,\n" +
-                        "            });}";
 
-        return res;
+        return String.format("Документ подписан (дата подписания)\n" +
+                "Усиленной Простой Электронной Подписью\n" +
+                "ФИО сотрудника\n" +
+                "Сертификат - ХЭШ Пароля\n" +
+                "Предприятие\n" +
+                "Действителен с (lstchgdte из Psnmst) по (lstchgdte+15 мес. из Psnmst)\n", "", "", "");
     }
 
-    public static String creatMarkers(List<DevInfo> devInfoList) {
-        String res = "function initMap() { ";
-        for (DevInfo devInf : devInfoList) {
-            if (devInf.isActive()) {
-                res += new Marker(devInf.getName(), devInf.getLats(), devInf.getSpeed(), devInf.getDevice(), devInf.getLat(), devInf.getLng(), devInf.getCourse()).toString();
-            }
+    public static ByteArrayOutputStream docxToPdf(XWPFDocument document){
+        try {
+            PdfOptions options = PdfOptions.create();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PdfConverter.getInstance().convert(document, out, options);
+            return out;
+        }catch (Exception e){
+            e.printStackTrace();
+            return null;
         }
-
-        return res + " }";
     }
+
 
     public static void wrFile(String connString, int tcpat, DataInputStream dis) throws Exception {
         byte[] pdfData = dis.readAllBytes();
@@ -166,23 +179,19 @@ public class AutoGpsLib {
         ps.executeUpdate();
     }
 
+    public static void updateTcpoahdr(String connString, int tcpoa, String sdte, String edte, int qnt) throws Exception {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
-    public static String getMarkersLst(List<DevInfo> devInfoList) {
-        String res =
-                "         let map;\n" +
-                "        function initMap() {\n" +
-                "            map = new google.maps.Map(document.getElementById(\"map\"), {\n" +
-                "                 center: { lat: 55.10948, lng: 38.749325 },\n" +
-                "                zoom: 12,\n" +
-                "            }); ";
+        Connection dbConnection = DriverManager.getConnection(connString);
+        PreparedStatement ps = dbConnection.prepareStatement("UPDATE Tcpoahdr SET Strdte = ?, Stpdte = ?, Qnt = ? WHERE Tcpoa = " + tcpoa);
 
-        for (DevInfo devInf : devInfoList) {
-            if (devInf.isActive()) {
-                res += new Marker(devInf.getName(), devInf.getLats(), devInf.getSpeed(), devInf.getDevice(), devInf.getLat(), devInf.getLng(), devInf.getCourse()).toString();
-            }
-        }
-        return res + " }";
+        ps.setDate(1, (java.sql.Date.valueOf(sdte)));
+        ps.setDate(2, (java.sql.Date.valueOf(edte)));
+        ps.setInt(3, qnt);
+
+        ps.executeUpdate();
     }
+
 
     public static CDate foundCD(LocalDate fdate) {
         DateTimeFormatter formatters = DateTimeFormatter.ofPattern("dd.MM.yyyy");
@@ -236,8 +245,29 @@ public class AutoGpsLib {
     return true;
     }
 
+    public static boolean editDevice(String url, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime) {
+        try {
+            Connection dbConnection = DriverManager.getConnection(url);
+            PreparedStatement ps = dbConnection.prepareStatement(
+                    "UPDATE Tcpatmst " +
+                            "SET des = ?, crtdoctyp = ?, aprdoctyp = ?, agrdoctyp = ?, exedoctyp = ?, lifetime = ?, savetime = ? " +
+                            "WHERE tcpat = " + tcpa);
+            ps.setString(1, des);
+            ps.setInt(2, crt);
+            ps.setInt(3, app);
+            ps.setInt(4, agr);
+            ps.setInt(5, exe);
+            ps.setInt(6, lifetime);
+            ps.setInt(7, savetime);
+            ps.executeUpdate();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return true;
+    }
 
-    public static boolean addDevice(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload) {
+
+    public static boolean addTcpatmst(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload) {
         try {
             Connection dbConnection = DriverManager.getConnection(url);
             PreparedStatement ps = dbConnection.prepareStatement(
@@ -255,6 +285,149 @@ public class AutoGpsLib {
             ps.setInt(9, savetime);
             ps.setBytes(10, fileupload.getBytes());
             ps.setDate(11, new java.sql.Date(new java.util.Date().getTime()));
+            ps.executeUpdate();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return true;
+    }
+
+    public static class DocxReplace{
+        String s1;
+        String s2;
+
+        public DocxReplace(String s1, String s2) {
+            this.s1 = s1;
+            this.s2 = s2;
+        }
+    }
+
+    public static class URD{
+        public Map<String, String> sl;
+        public XWPFDocument doc;
+
+        public URD(Map<String, String> sl) {
+            this.sl = sl;
+        }
+    }
+
+    public static XWPFDocument setImgDocx(XWPFDocument doc, String teg, String html) throws Exception {
+        ByteArrayOutputStream os = convertHtmlToImage(html);
+        InputStream is = new ByteArrayInputStream(os.toByteArray());
+
+        for (XWPFParagraph p : doc.getParagraphs()) {
+            List<XWPFRun> runs = p.getRuns();
+            if (runs != null) {
+                for (XWPFRun r : runs) {
+                    String text = r.getText(0);
+                    if(text != null && text.contains(teg)) {
+                        r.setText(r.text().replace(teg, ""), 0);
+                        r.addPicture(is, XWPFDocument.PICTURE_TYPE_JPEG, "imgFile", Units.toEMU(393), Units.toEMU(105));
+                        break;
+                    }
+                }
+            }
+        }
+        return doc;
+    }
+
+    public static ByteArrayOutputStream convertHtmlToImage(String imageHtml) throws IOException {
+        HtmlImageGenerator imageGenerator = new HtmlImageGenerator();
+        imageGenerator.loadHtml (imageHtml); // Он также может быть загружен в соответствии с html-ссылкой на loadUrl
+        //Thread.sleep(1000); // Иногда происходит задержка загрузки изображений, поэтому установите задержку здесь
+        imageGenerator.getBufferedImage();
+        //Thread.sleep(2000);
+        BufferedImage bi = imageGenerator.getBufferedImage();
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
+        ImageIO.write(bi, "PNG", os);
+
+        ImageIO.write(bi, "PNG", new File("C:/GPS/698589.png"));
+
+        return os;
+    }
+
+
+    public static boolean foundInDocx(XWPFDocument doc, String teg){
+        boolean res = false;
+        for (XWPFParagraph p : doc.getParagraphs()) {
+            List<XWPFRun> runs = p.getRuns();
+            if (runs != null) {
+                for (XWPFRun r : runs) {
+                    String text = r.getText(0);
+                    if(text != null && text.contains(teg)) {
+                        res = true;
+                        break;
+                    }
+                }
+            }
+        }
+            return res;
+    }
+
+    public static URD updateDocx(XWPFDocument doc, List<DocxReplace> docxReplaces){
+        URD res = new URD(new HashMap<>());
+        try {
+            for (DocxReplace dr:docxReplaces) {
+                for (XWPFParagraph p : doc.getParagraphs()) {
+                    List<XWPFRun> runs = p.getRuns();
+                    if (runs != null) {
+                        String prev = "";
+                        for (XWPFRun r : runs) {
+                            String text = r.getText(0);
+                            if(text != null && text.contains("Таб"))
+                                System.out.println(text + ";  " + prev);
+                            if (text != null && text.contains(dr.s1)) {
+                                res.sl.put(dr.s2, prev);
+                                text = text.replace(dr.s1, dr.s2);
+                                r.setText(text, 0);
+                            }
+                            prev = r.getText(0);
+                        }
+                    }
+                }
+                for (XWPFTable tbl : doc.getTables()) {
+                    for (XWPFTableRow row : tbl.getRows()) {
+                        for (XWPFTableCell cell : row.getTableCells()) {
+                            for (XWPFParagraph p : cell.getParagraphs()) {
+                                String prev = "";
+                                for (XWPFRun r : p.getRuns()) {
+                                    String text = r.getText(0);
+                                    if (text != null && text.contains(dr.s1)) {
+                                        System.out.println(prev);
+                                        text = text.replace(dr.s1, dr.s2);
+                                        r.setText(text,0);
+                                    }
+                                    prev = r.getText(0);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        res.doc = doc;
+        return res;
+    }
+
+    public static boolean addTcpatmst(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime) {
+        try {
+            Connection dbConnection = DriverManager.getConnection(url);
+            PreparedStatement ps = dbConnection.prepareStatement(
+                    "INSERT INTO Tcpatmst " +
+                            "(entby, tcpat, des, crtdoctyp, aprdoctyp, agrdoctyp, exedoctyp, lifetime, savetime, entdte) " +
+                            "VALUES (?,?,?,?,?,?,?,?,?,?);");
+            ps.setString(1, entby);
+            ps.setInt(2, tcpa);
+            ps.setString(3, des);
+            ps.setInt(4, crt);
+            ps.setInt(5, app);
+            ps.setInt(6, agr);
+            ps.setInt(7, exe);
+            ps.setInt(8, lifetime);
+            ps.setInt(9, savetime);
+            ps.setDate(10, new java.sql.Date(new java.util.Date().getTime()));
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
@@ -347,6 +520,25 @@ public class AutoGpsLib {
         return res;
     }
 
+    public static String getTabnum(String url, String psn) {
+        String res = "";
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            Connection conn = DriverManager.getConnection(url);
+            String sql = "SELECT Tabnum from Psnbrn WHERE Psn = '" + psn + "'";
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+
+
+            rs.next();
+            res = rs.getString(1);
+
+        } catch (Exception throwables) {
+            throwables.printStackTrace();
+        }
+
+        return res;
+    }
+
     public static List<DocElem> getDocElem(String url, String order, Date startTime, Date endTime, int i1, int i2, String dep, String tmp, String fio) {
         List<DocElem> res = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -361,7 +553,7 @@ public class AutoGpsLib {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             Connection conn = DriverManager.getConnection(url);
-            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtdtesign, b.Agrpsnsign, b.Agrdtesign, b.Apppsnsign, b.Appdtesign, b.Exepsnsign, b.Exedtesign, b.Entdte " +
+            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsndessign, b.Crtdtesign, b.Agrpsndessign, b.Agrdtesign, b.Apppsndessign, b.Appdtesign, b.Exepsndessign, b.Exedtesign, b.Entdte " +
                     "from Tcpoahdr b " +
                     " left join Tcpatmst a on b.Tcpat = a.Tcpat " +
                     " left join Psnbrn c on b.Psn=c.Psn and b.Tabnum=c.Tabnum and c.Rcdsts < 9 " +
@@ -381,10 +573,10 @@ public class AutoGpsLib {
                 String Template = rs.getString("Template");
 
 
-                String Apppsnsign = rs.getString("Apppsnsign");
-                String Agrpsnsign = rs.getString("Agrpsnsign");
-                String Crtpsnsign = rs.getString("Crtpsnsign");
-                String Exepsnsign = rs.getString("Exepsnsign");
+                String Apppsndessign = rs.getString("Apppsndessign");
+                String Agrpsndessign = rs.getString("Agrpsndessign");
+                String Crtpsndessign = rs.getString("Crtpsndessign");
+                String Exepsndessign = rs.getString("Exepsndessign");
 
                 Date Appdtesign = new java.util.Date(rs.getTimestamp("Appdtesign").getTime());
                 Date Agrdtesign = new java.util.Date(rs.getTimestamp("Agrdtesign").getTime());
@@ -392,7 +584,7 @@ public class AutoGpsLib {
                 Date Exedtesign = new java.util.Date(rs.getTimestamp("Exedtesign").getTime());
 
 
-                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtdtesign, Agrpsnsign, Agrdtesign, Apppsnsign, Appdtesign, Exepsnsign, Exedtesign));
+                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsndessign, Crtdtesign, Agrpsndessign, Agrdtesign, Apppsndessign, Appdtesign, Exepsndessign, Exedtesign));
             }
         } catch (Exception throwables) {
             throwables.printStackTrace();
@@ -401,8 +593,8 @@ public class AutoGpsLib {
         return res;
     }
 
-    public static int getTcpoaLogin(String url) {
-        int res = -1;
+    public static String getTcpoaLogin(String url) {
+        String res = "";
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String usr = auth.getName();
 
@@ -412,7 +604,7 @@ public class AutoGpsLib {
 
             rs.next();
 
-            res = rs.getInt("Psn");
+            res = rs.getString("Psn");
 
         } catch (SQLException throwables) {
             throwables.printStackTrace();

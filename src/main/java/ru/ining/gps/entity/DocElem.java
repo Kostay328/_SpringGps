@@ -9,16 +9,16 @@ public class DocElem {
     private String Template;    //Отдел
 
 
-    private String Crtpsnsign;  //Автор
+    private String Crtpsndessign;  //Автор
     private Date Crtdtesign;
 
-    private String Agrpsnsign;  //Утвержден
+    private String Agrpsndessign;  //Утвержден
     private Date Agrdtesign;
 
-    private String Apppsnsign;  //Согласованно
+    private String Apppsndessign;  //Согласованно
     private Date Appdtesign;
 
-    private String Exepsnsign;  //Исполнен
+    private String Exepsndessign;  //Исполнен
     private Date Exedtesign;
 
     public int getTcpoa() {
@@ -53,12 +53,12 @@ public class DocElem {
         Template = template;
     }
 
-    public String getCrtpsnsign() {
-        return Crtpsnsign;
+    public String getCrtpsndessign() {
+        return Crtpsndessign;
     }
 
-    public void setCrtpsnsign(String crtpsnsign) {
-        Crtpsnsign = crtpsnsign;
+    public void setCrtpsndessign(String crtpsndessign) {
+        Crtpsndessign = crtpsndessign;
     }
 
     public Date getCrtdtesign() {
@@ -69,12 +69,12 @@ public class DocElem {
         Crtdtesign = crtdtesign;
     }
 
-    public String getAgrpsnsign() {
-        return Agrpsnsign;
+    public String getAgrpsndessign() {
+        return Agrpsndessign;
     }
 
-    public void setAgrpsnsign(String agrpsnsign) {
-        Agrpsnsign = agrpsnsign;
+    public void setAgrpsndessign(String agrpsndessign) {
+        Agrpsndessign = agrpsndessign;
     }
 
     public Date getAgrdtesign() {
@@ -85,12 +85,12 @@ public class DocElem {
         Agrdtesign = agrdtesign;
     }
 
-    public String getApppsnsign() {
-        return Apppsnsign;
+    public String getApppsndessign() {
+        return Apppsndessign;
     }
 
-    public void setApppsnsign(String apppsnsign) {
-        Apppsnsign = apppsnsign;
+    public void setApppsndessign(String apppsndessign) {
+        Apppsndessign = apppsndessign;
     }
 
     public Date getAppdtesign() {
@@ -101,12 +101,12 @@ public class DocElem {
         Appdtesign = appdtesign;
     }
 
-    public String getExepsnsign() {
-        return Exepsnsign;
+    public String getExepsndessign() {
+        return Exepsndessign;
     }
 
-    public void setExepsnsign(String exepsnsign) {
-        Exepsnsign = exepsnsign;
+    public void setExepsndessign(String exepsndessign) {
+        Exepsndessign = exepsndessign;
     }
 
     public Date getExedtesign() {
@@ -117,18 +117,18 @@ public class DocElem {
         Exedtesign = exedtesign;
     }
 
-    public DocElem(int tcpoa, Date actdte, String dep, String template, String crtpsnsign, Date crtdtesign, String agrpsnsign, Date agrdtesign, String apppsnsign, Date appdtesign, String exepsnsign, Date exedtesign) {
+    public DocElem(int tcpoa, Date actdte, String dep, String template, String crtpsndessign, Date crtdtesign, String agrpsndessign, Date agrdtesign, String apppsndessign, Date appdtesign, String exepsndessign, Date exedtesign) {
         Tcpoa = tcpoa;
         Actdte = actdte;
         Dep = dep;
         Template = template;
-        Crtpsnsign = crtpsnsign;
+        Crtpsndessign = crtpsndessign;
         Crtdtesign = crtdtesign;
-        Agrpsnsign = agrpsnsign;
+        Agrpsndessign = agrpsndessign;
         Agrdtesign = agrdtesign;
-        Apppsnsign = apppsnsign;
+        Apppsndessign = apppsndessign;
         Appdtesign = appdtesign;
-        Exepsnsign = exepsnsign;
+        Exepsndessign = exepsndessign;
         Exedtesign = exedtesign;
     }
 }

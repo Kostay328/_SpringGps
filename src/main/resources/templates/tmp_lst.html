@@ -2,18 +2,20 @@
 <html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
       xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
-  <title>Test</title>
+  <title>Шаблоны</title>
 </head>
 <body onload="getRows()">
 
 <div style="margin-left: 52px" layout:fragment="title">
-  Путевые Листы
+  Просмотр шаблонов
 </div>
 
 
 
 
-<div layout:fragment="content" onload="getRows()">
+<div layout:fragment="content">
+    <br>
+    <button style="margin-left: 37px" class="btn btn-success" onclick="document.location='/add_tmp'">Добавить шаблон</button>
       <table class="table mt-3">
           <thead>
               <tr>
@@ -31,7 +33,7 @@
           </thead>
           <tbody>
           <tr th:each="tmp : ${tmpList}">
-              <th th:text="${tmp.Tcpat}"></th>
+              <th style="text-align: center"><button class="btn btn-info" th:text="${tmp.Tcpat}" th:attr="onclick=|${tmp.onclick}|" style="width: 60px;"></button></th>
               <th th:text="${tmp.Des}"></th>
               <th th:text="${tmp.Entby}"></th>
               <th th:text="${tmp.Entdte}"></th>

@@ -2,7 +2,7 @@
 <html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
       xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
-  <title>Список документов</title>
+  <title>Шаблон</title>
 </head>
 <body>
 
@@ -17,7 +17,7 @@
           <!--        <input type="hidden" name="entdte" id="entdte">-->
         <nobr>
           Шаблон
-          <input type="number" id="tcpa" name="tcpa" th:value="${Tcpat}" style="width: 40px; margin-right: 819px" readonly>
+          <input type="number" id="tcpa" name="tcpa" th:value="${Tcpat}" style="width: 90px; margin-right: 30px" readonly>
           Название
           <input type="text" id="des" name="des" th:value="${Des}" style="width: 350px;">
         </nobr>
@@ -80,12 +80,17 @@
           Хранить (лет)
           <input type="number" id="savetime" name="savetime" th:value="${Savetime}" style="width: 40px;">
         </nobr>
-        <br>
-        <br>
 
+          <br>
+          <br>
+          <div th:if="${docx}">
+              <iframe th:attr="src=${tmp_src}" width="500" height="750"></iframe>
+              <br>
+              <br>
+          </div>
         <input id="fileupload" type="file" name="fileupload"/><br>
         <br>
-        <button id="btnStart" type="submit" class="btn btn-success">Изменить</button>
+        <button id="btnStart" type="submit" class="btn btn-success">Сохранить</button>
       </form>
       <script>
           let crt = document.getElementById('crt').getElementsByTagName('option');

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html layout:decorate="~{layouts/layoutMap}" xmlns:layout="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Документ</title>
+</head>
+<body>
+
+<div layout:fragment="title" style="margin-left: 50px">
+    Создание документов
+</div>
+
+<div layout:fragment="content">
+    <div class="container" style="margin: 20px">
+
+        <div style="display: inline-block">
+            <iframe id="iframe" src="/tmp_pdf_file?tcpat=1" width="500" height="750"></iframe>
+                <form th:action="@{/multi_add}" method="post" style="display: inline;padding: 5px; vertical-align: top;" enctype="multipart/form-data">
+                    <div style="display: inline-block; margin-left: 50px">
+                        Шаблон
+                        <select onchange="frame('/tmp_pdf_file?tcpat=' + this.options[this.selectedIndex].value)" style="height: 28px;  margin-bottom: 20px" id="tmp" name="tmp">
+                            <option th:each="tmp : ${template}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>
+                        </select>
+                        <br>
+                        <br>
+                        <span> Отдел:</span>
+                        <select style="height: 28px" id="mode1" name="mode">
+                            <option value="">Все отделы</option>
+                            <option th:each="dep : ${deps}" th:value="${dep.key12}" th:text="${dep.val}"></option>
+                        </select>
+                        <br>
+                        <br>
+                        Дата создания
+                        <input th:value="${date}" type="date" id="date" name="date" style="width: 200px;margin-bottom: 20px">
+                        <br>
+                        <br>
+                        Должность
+                        <select style="height: 28px;  margin-bottom: 20px; width: 200px;" id="wp" name="wp">
+                            <option value=""></option>
+                        </select>
+                        <div>
+                            <br>
+                            Дата с
+                            <input type="date" id="date1" name="date1" style="width: 200px;margin-bottom: 20px">
+                        </div>
+
+                        <div>
+                            <br>
+                            Дата по
+                            <input type="date" id="date2" name="date2" style="width: 200px;margin-bottom: 20px">
+                        </div>
+                        <div>
+                            <br>
+                            Количество
+                            <input value="0" type="number" id="qnt" name="qnt" style="width: 50px;margin-bottom: 20px">
+                        </div>
+                        <br>
+                        <button id="btnStart" type="submit" class="btn btn-success">Создать документы</button>
+                    </div>
+                </form>
+        </div>
+    </div>
+    <script>
+        function frame(gg){
+            document.getElementById('iframe').src=gg;
+        }
+    </script>
+</div>
+
+</body>
+</html>
