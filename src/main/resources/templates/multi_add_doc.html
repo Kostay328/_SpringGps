@@ -8,6 +8,10 @@
 
 <div layout:fragment="title" style="margin-left: 50px">
     Создание документов
+    <nobr style='vertical-align: middle; text-align: center; margin-left: 500px;'>
+        <img style='vertical-align: middle; text-align: center;width: 15px;' src="/images/user.png">
+        <span th:text="${user}" style="vertical-align: middle; margin-left: 2px; font-size: 14px"></span>
+    </nobr>
 </div>
 
 <div layout:fragment="content">
@@ -17,6 +21,7 @@
             <iframe id="iframe" src="/tmp_pdf_file?tcpat=1" width="500" height="750"></iframe>
                 <form th:action="@{/multi_add}" method="post" style="display: inline;padding: 5px; vertical-align: top;" enctype="multipart/form-data">
                     <div style="display: inline-block; margin-left: 50px">
+                        <br>
                         Шаблон
                         <select onchange="frame('/tmp_pdf_file?tcpat=' + this.options[this.selectedIndex].value)" style="height: 28px;  margin-bottom: 20px" id="tmp" name="tmp">
                             <option th:each="tmp : ${template}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>

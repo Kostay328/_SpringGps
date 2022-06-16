@@ -5,6 +5,9 @@
   <title>Документ</title>
 
     <style>
+        .hidden {
+            display: none;
+        }
         .popup-fade {
             display: none;
         }
@@ -46,7 +49,11 @@
 <body>
 
 <div layout:fragment="title" style="margin-left: 50px">
-  Редактирование документа
+  Документ
+    <nobr style='vertical-align: middle; text-align: center; margin-left: 500px;'>
+        <img style='vertical-align: middle; text-align: center;width: 15px;' src="/images/user.png">
+        <span th:text="${user}" style="vertical-align: middle; margin-left: 2px; font-size: 14px"></span>
+    </nobr>
 </div>
 
 <div layout:fragment="content">
@@ -55,15 +62,33 @@
             <button style="margin-left: 350px" onclick="fadeOut('.popup-fade')" class="btn btn-danger btn-sm">Закрыть</button>
             <br>
             <br>
-            Подтвердите пароль
-            <input type="password" id="pass">
+            <div th:if="${!sms}">
+                Подтвердите пароль
+                <input type="password" id="pass">
+            </div>
+            <div th:if="${sms}">
+                Введите код
+                <input type="text" id="sms">
+            </div>
             <br>
             <br>
-            <form th:action="@{/add_sign}" method="post" style="display: inline; vertical-align: top;" enctype="multipart/form-data" onsubmit="return passCheck(document.getElementById('pass').value)">
-                <input th:value="${tcpoa}" type="hidden" name="tcpoa">
-                <input th:value="${psn}" id="psn" type="hidden" name="psn">
-                <button th:if="${params}" class="btn btn-info" style="margin-right: 5px">Подписать</button>
-            </form>
+            <div style="white-space: nowrap">
+                <div th:if="${sms}">
+                    <button th:if="${params}" class="btn btn-info" style="margin-right: 5px; margin-bottom: 10px" id="smsSender" onclick="sendSMS()">Отправить код</button>
+                </div>
+                <form th:if="${!sms}" th:action="@{/add_sign}" method="post" style="display: inline; vertical-align: top;" enctype="multipart/form-data" onsubmit="return passCheck(document.getElementById('pass').value)">
+                    <input th:value="${tcpoa}" type="hidden" name="tcpoa">
+                    <input th:value="${psn}" id="psn" type="hidden" name="psn">
+                    <!--                    <input th:value="${psn}" id="psn" type="hidden" name="psn">-->
+                    <button th:if="${params}" class="btn btn-info" style="margin-right: 5px">Подписать</button>
+                </form>
+                <form th:if="${sms}" th:action="@{/add_sign}" method="post" style="display: inline; vertical-align: top;" enctype="multipart/form-data" onsubmit="return smsCheck(document.getElementById('sms').value)">
+                    <input th:value="${tcpoa}" type="hidden" name="tcpoa">
+                    <input th:value="${psn}" id="psn" type="hidden" name="psn">
+    <!--                    <input th:value="${psn}" id="psn" type="hidden" name="psn">-->
+                    <button th:if="${params}" class="btn btn-info" style="margin-right: 5px">Подписать</button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -72,57 +97,107 @@
           <iframe th:attr="src=${doc_src}" width="500" height="750"></iframe>
           <div style="display: inline-block; margin-left: 50px; vertical-align: top;">
           <form th:action="@{/edit_doc_db}" method="post" style="display: inline;padding: 5px; vertical-align: top;" enctype="multipart/form-data">
+              <br>
               Документ
               <input th:value="${tcpoa}" type="text" id="tcpoa" name="tcpoa" style="width: 80px; margin-bottom: 20px" readonly>
               <br>
               Шаблон
               <input th:value="${tmp}" type="text" id="tmp"  style="width: 400px; margin-bottom: 20px" readonly>
               <br>
-              Дата создания
-              <input th:value="${entdte}" type="text" id="date" style="width: 200px;margin-bottom: 20px" readonly>
+              <div th:if="${btnflg}">
+                  Дата создания
+                  <input th:value="${entdte}" type="text" id="date" style="width: 200px;margin-bottom: 20px" readonly>
 
 
-              <div th:if="${sdteflg}">
-                  <br>
-                  Дата с
-                  <input  th:value="${date1}" type="date" id="date1" name="date1" style="width: 200px;margin-bottom: 20px">
+                  <div th:if="${sdteflg}">
+                      <br>
+                      Дата с
+                      <input  th:value="${date1}" type="date" id="date1" name="date1" style="width: 200px;margin-bottom: 20px">
+                  </div>
+                  <input th:if="${!sdteflg}" value="" type="hidden" name="date1">
+
+
+                  <div th:if="${sdteflg}">
+                      <br>
+                      Дата по
+                      <input th:value="${date2}" type="date" id="date2" name="date2" style="width: 200px;margin-bottom: 20px">
+                  </div>
+                  <input th:if="${!sdteflg}" value="" type="hidden" name="date2">
+
+
+                  <div th:if="${cntflg}">
+                      <br>
+                      Количество
+                      <input th:value="${qnt}" type="number" id="qnt" name="qnt" style="width: 50px;margin-bottom: 20px">
+                  </div>
+
+                  <input th:if="${!cntflg}" value="" type="hidden" name="qnt">
               </div>
-              <input th:if="${!sdteflg}" value="" type="hidden" name="date1">
 
 
-              <div th:if="${sdteflg}">
-                  <br>
-                  Дата по
-                  <input th:value="${date2}" type="date" id="date2" name="date2" style="width: 200px;margin-bottom: 20px">
+              <div th:if="${msgFlg}">
+                  Комментарий:
+                  <p th:text="${msg}"></p>
               </div>
-              <input th:if="${!sdteflg}" value="" type="hidden" name="date2">
-
-
-              <div th:if="${cntflg}">
-                  <br>
-                  Количество
-                  <input th:value="${qnt}" type="number" id="qnt" name="qnt" style="width: 50px;margin-bottom: 20px">
-              </div>
-              <input th:if="${!cntflg}" value="" type="hidden" name="qnt">
-<!--                  <input type="hidden" name="qnt" value="0">-->
-<!--                  <br>-->
-<!--                  <input type="number" id="ptn" name="ptn" style="width: 100px;margin-bottom: 20px">-->
-
-<!--                  <select style="height: 28px;margin-bottom: 20px" id="tmp" name="tmp">-->
-<!--                      <option th:each="tmp : ${tmp_}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>-->
-<!--                  </select>-->
               <br>
-              <button id="btnStart" type="submit" class="btn btn-success">Сохранить</button>
-          </form>
+              <div th:if="${controlMsg}">
+                  Комментарий:
+                  <p th:text="${cMsg}"></p>
+              </div>
+              <br>
+              <div th:if="${commentExe}">
+                  Комментарий для исполнителя:
+                  <p th:text="${comment}"></p>
+              </div>
+              <br>
+              <button th:if="${btnflg}" id="btnStart" type="submit" class="btn btn-success">Сохранить</button>
 
+          </form>
               <button th:if="${params}" id="btnSign" class="btn btn-info" style="margin-right: 5px" onclick="fadeIn('.popup-fade')">Подписать</button>
 
-              <button th:if="${!params}"  class="btn btn-info" style="margin-right: 5px" disabled>Подписать</button>
+              <form th:if="${create}" th:action="@{/exe_doc}" method="post" style="display: inline;padding: 5px; vertical-align: top;" enctype="multipart/form-data">
+                  <input th:value="${tcpoa}" type="hidden"  name="tcpoa">
+                  <button style="margin-right: 5px" class="btn btn-info">Создать</button>
+              </form>
 
-              <button class="btn btn-danger" onclick="document.location='/'">Выйти</button>
+              <button style="margin-right: 5px" th:if="${params}" class="btn btn-danger" onclick="writeReject()">Отклонить</button>
+              <button class="btn btn-warning" onclick="document.location='/'">Выйти</button>
           </div>
         </div>
       <script>
+          function sendSMS(){
+              let xhr = new XMLHttpRequest();
+
+              let params = {
+                  tcpoa: document.getElementById("tcpoa").value,
+              }
+
+              xhr.open('GET', '/sms_request_one' + formatParams(params), false);
+              xhr.send();
+
+              // let rest = JSON.parse(xhr.responseText);
+              //
+              // if(!rest)
+              //     alert("Вы ввели неверный код!")
+
+              document.getElementById("smsSender").diabled = true;
+          }
+
+          function writeReject(){
+              let dn = new Date();
+              let msg = ("0"+dn.getDate()).slice(-2)+"."+("0"+dn.getMonth()).slice(-2) +"."+dn.getFullYear() + " " + prompt('Введите комментарий', '');
+
+              let xhr = new XMLHttpRequest();
+
+
+              xhr.open('GET', '/reject_doc?tcpoa='+document.getElementById('tcpoa').value+'&msg=' + msg, false);
+              xhr.send();
+
+
+
+              document.location='/';
+          }
+
           function formatParams(params){
               return "?" + Object
                   .keys(params)
@@ -147,6 +222,24 @@
 
               if(!rest)
                   alert("Вы ввели неверный пароль!")
+
+              return rest;
+          }
+          function smsCheck(sms){
+              let xhr = new XMLHttpRequest();
+
+              let params = {
+                  tcpoalst: document.getElementById("tcpoa").value,
+                  code: sms
+              }
+
+              xhr.open('GET', '/check_code' + formatParams(params), false);
+              xhr.send();
+
+              let rest = JSON.parse(xhr.responseText);
+
+              if(!rest)
+                  alert("Вы ввели неверный код!")
 
               return rest;
           }

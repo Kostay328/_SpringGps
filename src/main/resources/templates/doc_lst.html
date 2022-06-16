@@ -3,19 +3,148 @@
       xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
   <title>Документы</title>
+
+    <style>
+        .popup-fade {
+            display: none;
+        }
+        .popup-fade:before {
+            content: '';
+            background: #000;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.7;
+            z-index: 9999;
+        }
+        .popup {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            padding-top: 8px;
+            padding-right: 20px;
+            padding-left: 20px;
+            padding-bottom: 20px;
+            width: 450px;
+            margin-left: -225px;
+            margin-top: 100px;
+            background: #fff;
+            border: 1px solid orange;
+            border-radius: 4px;
+            z-index: 99999;
+            opacity: 1;
+        }
+        .popup-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+    </style>
 </head>
 <body onload="getRows()">
 
 <div style="margin-left: 52px" layout:fragment="title">
   Список документов
+    <nobr style='vertical-align: middle; text-align: center; margin-left: 1100px;'>
+        <img style='vertical-align: middle; text-align: center;width: 15px;' src="/images/user.png">
+        <span th:text="${user}" style="vertical-align: middle; margin-left: 2px; font-size: 14px"></span>
+    </nobr>
 </div>
 
 
 
 
 <div layout:fragment="content" onload="getRows()">
+    <input th:value="${psn}" id="psn" type="hidden" name="psn">
     <link rel='stylesheet' type='text/css' href='css/sortbtn.css'>
+    <div class="popup-fade">
+        <div class="popup">
+            <button style="margin-left: 350px" onclick="fadeOut('.popup-fade')" class="btn btn-danger btn-sm">Закрыть</button>
+            <br>
+            <br>
+            <div th:if="${!sms}">
+                Подтвердите пароль
+                <input type="password" id="pass">
+            </div>
+            <div th:if="${sms}">
+                Введите код
+                <input type="text" id="sms">
+            </div>
+            <br>
+            <br>
+            <div style="white-space: nowrap">
+                <button th:if="${sms}" class="btn btn-info" style="margin-right: 5px; margin-bottom: 10px" id="smsSender" onclick="sendSMS()">Отправить код</button>
+                <form th:if="${!sms}" th:action="@{/add_sign_lst}" method="post" style="display: inline; vertical-align: top;" enctype="multipart/form-data" onsubmit="return passCheck(document.getElementById('pass').value)">
+                    <input id="tcpoalst" type="hidden" name="tcpoalst">
+                    <!--                    <input th:value="${psn}" id="psn" type="hidden" name="psn">-->
+                    <button class="btn btn-info" style="margin-right: 5px">Подписать</button>
+                </form>
+                <form th:if="${sms}" th:action="@{/add_sign_lst}" method="post" style="display: inline; vertical-align: top;" enctype="multipart/form-data" onsubmit="return smsCheck(document.getElementById('sms').value)">
+                    <input id="tcpoalst" type="hidden" name="tcpoalst">
+                    <!--                    <input th:value="${psn}" id="psn" type="hidden" name="psn">-->
+                    <button class="btn btn-info" style="margin-right: 5px">Подписать</button>
+                </form>
+            </div>
+        </div>
+    </div>
     <script>
+        function sendSMS(){
+            let xhr = new XMLHttpRequest();
+
+            let params = {
+                tcpoalst: document.getElementById("tcpoalst").value,
+            }
+
+            xhr.open('GET', '/sms_request_lst' + formatParams(params), false);
+            xhr.send();
+
+            // let rest = JSON.parse(xhr.responseText);
+            //
+            // if(!rest)
+            //     alert("Вы ввели неверный код!")
+
+            document.getElementById("smsSender").diabled = true;
+        }
+
+        function smsCheck(sms){
+            let xhr = new XMLHttpRequest();
+
+            let params = {
+                tcpoalst: document.getElementById("tcpoalst").value,
+                code: sms
+            }
+
+            xhr.open('GET', '/check_code' + formatParams(params), false);
+            xhr.send();
+
+            let rest = JSON.parse(xhr.responseText);
+
+            if(!rest)
+                alert("Не верный код или одна из записей не может быть подписана пакетно")
+
+            return rest;
+        }
+
+        function passCheck(password){
+            let xhr = new XMLHttpRequest();
+
+            let params = {
+                pass: password,
+                psn: document.getElementById("psn").value
+            }
+
+            xhr.open('GET', '/check_pass' + formatParams(params), false);
+            xhr.send();
+
+            let rest = JSON.parse(xhr.responseText);
+
+            if(!rest)
+                alert("Вы ввели неверный пароль!")
+
+            return rest;
+        }
 
         function check() {
             var nodes = document.getElementsByTagName("input");
@@ -105,7 +234,7 @@
   <div class="container" style="margin: 20px">
       <nobr>
           <button style="margin-bottom: 5px" type="submit" id="on_sign" class="btn btn-success">На подпись</button>
-          <button style="margin-bottom: 5px; margin-right: 20px" type="submit" id="sign_selected" class="btn btn-success">Подписать выделенные</button>
+          <button style="margin-bottom: 5px; margin-right: 20px" type="submit" id="sign_selected" class="btn btn-success" onclick="getAllSelected()">Подписать выделенные</button>
           <button style="margin-bottom: 5px" class="btn btn-info" onclick="document.location='/add_doc'">Добавить</button>
       </nobr>
       <nobr>
@@ -115,6 +244,13 @@
           <select style="height: 28px" id="mode" name="mode">
               <option value="">Все шаблоны</option>
               <option th:each="tmp : ${template}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>
+          </select>
+          <span> Контроль:</span>
+          <select style="height: 28px" id="control">
+              <option value="-1">Все записи</option>
+              <option value="0">Не было контроля</option>
+              <option value="1">Не прошел контроль</option>
+              <option value="2">Прошел контроль</option>
           </select>
           <span> Отдел:</span>
           <select style="height: 28px" id="mode1" name="mode"1>
@@ -127,7 +263,7 @@
               <option th:each="fio : ${FIOs}" th:value="${fio.key1}" th:text="${fio.value}"></option>
           </select>
           <button id="btnDelAll" type="submit" class="btn btn-danger" onclick="delParams()">Сбросить</button>
-          <div th:text="${tcpoa}"></div>
+          <button style="margin-bottom: 5px; margin-left: 280px" onclick="document.location='/xlsx'" class="btn btn-success">Выгрузить в Excel</button>
       </nobr>
 
 
@@ -138,6 +274,7 @@
                       <th scope="col"><button class="btn btn-success" onclick="check()"><nobr>Выбрать все</nobr></button></th>
                       <th scope="col" class="second"><button style="border:none;" id="1">N</button></th>
                       <th scope="col" class="second"><button style="border:none;" id="2">Дата</button></th>
+                      <th style="vertical-align: middle; text-align: center; font-weight: normal"><span style="vertical-align: middle; text-align: center;">Контроль</span></th>
                       <th scope="col" class="second"><button style="border:none;" id="3">Шаблон</button></th>
                       <th scope="col" class="second"><button style="border:none;" id="4">Отдел</button></th>
                       <th scope="col" class="second"><button style="border:none;" id="5">Автор</button></th>
@@ -212,12 +349,18 @@
               let tmpRest = rest.tmp;
               let fioRest = rest.fio;
               let depRest = rest.dep;
-
+              let controlRest = rest.control;
 
               let mode = document.getElementById('mode').getElementsByTagName('option');
 
               for (let i = 0; i < mode.length; i++) {
                   if (mode[i].value === tmpRest) mode[i].selected = true;
+              }
+
+              let control = document.getElementById('control').getElementsByTagName('option');
+
+              for (let i = 0; i < control.length; i++) {
+                  if (control[i].value === controlRest.toString()) control[i].selected = true;
               }
 
 
@@ -296,7 +439,7 @@
               for (let ii = 0; ii < rest.lst.length; ii++) {
                   let elem = rest.lst[ii];
 
-                  let end = "";
+                  let end = " </tr> ";
 
                   let d1 = new Date(elem.Crtdtesign).toLocaleDateString();
                   if(d1 === "01.01.1901")
@@ -307,23 +450,78 @@
                   let d3 = new Date(elem.Appdtesign).toLocaleDateString();
                   if(d3 === "01.01.1901")
                       d3 = "";
-                  let d4 = new Date(elem.Exedtesign).toLocaleDateString();// bgcolor="#ffff00"
+                  let d4 = new Date(elem.Exedtesign).toLocaleDateString();
                   if(d4 === "01.01.1901")
                       d4 = "";
 
-                  html += "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" name=\"list\" type=\"checkbox\" size=\"10px\"></td> " +
+
+                  if(elem.CrtdtesignBtn.length > 0)
+                      d1 = elem.CrtdtesignBtn;
+                  if(elem.AgrdtesignBtn.length > 0)
+                      d2 = elem.AgrdtesignBtn;
+                  if(elem.AppdtesignBtn.length > 0)
+                      d3 = elem.AppdtesignBtn;
+                  if(elem.ExedtesignBtn.length > 0)
+                      d4 = elem.ExedtesignBtn;
+
+                  let fd1;
+                  if(elem.CrtdtesignStyleImg)
+                      fd1 = "<td "+elem.CrtdtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 23%;' src=\"/images/EDS.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d1 + "</span></td> "
+                  else
+                      fd1 = "<td "+elem.CrtdtesignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d1 + "</span></td> ";
+
+                  let fd2;
+                  if(elem.AgrdtesignStyleImg)
+                      fd2 = "<td "+elem.AgrdtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 23%;' src=\"/images/EDS.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d2 + "</span></td>"
+                  else
+                      fd2 = "<td "+elem.AgrdtesignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d2 + "</span></td>";
+
+                  let fd3;
+                  if(elem.AppdtesignStyleImg)
+                      fd3 = "<td "+elem.AppdtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 23%;' src=\"/images/EDS.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d3 + "</span></td>";
+                  else
+                      fd3 = "<td "+elem.AppdtesignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d3 + "</span></td>";
+
+                  let fd4;
+                  if(elem.ExedtesignStyleImg)
+                      fd4 = "<td "+elem.ExedtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 23%;' src=\"/images/EDS.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d4 + "</span></td>";
+                  else
+                      fd4 = "<td "+elem.ExedtesignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d4 + "</span></td>";
+
+                  if(elem.Crtpsnsign === "<REJECT>" && elem.Crtpsndessign.length > 0)
+                      fd1 = "<td "+elem.CrtdtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 30%;' src=\"/images/kirpich.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">Отклонено</span></td>";
+                  if(elem.Agrpsnsign === "<REJECT>" && elem.Agrpsndessign.length > 0)
+                      fd2 = "<td "+elem.AgrdtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 30%;' src=\"/images/kirpich.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">Отклонено</span></td>";
+                  if(elem.Apppsnsign === "<REJECT>" && elem.Apppsndessign.length > 0)
+                      fd3 = "<td "+elem.AppdtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 30%;' src=\"/images/kirpich.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">Отклонено</span></td>";
+                  if(elem.Exepsnsign === "<REJECT>" && elem.Exepsndessign.length > 0)
+                      fd4 = "<td "+elem.ExedtesignStyle+"><img style='vertical-align: middle; text-align: center;width: 30%;' src=\"/images/kirpich.png\"><br><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">Отклонено</span></td>";
+
+
+                  let flg = "<img title='"+elem.Сontrolmsg+"' style='vertical-align: middle; text-align: center;width: 80%;' src= \"/images/n.png\">";
+                  if(elem.Сontrolflg === 1)
+                      flg = "<img title='"+elem.Сontrolmsg+"' style='vertical-align: middle; text-align: center;width: 40%;' src=\"/images/no.png\">";
+                  if(elem.Сontrolflg === 2)
+                      flg = "<img title='"+elem.Сontrolmsg+"' style='vertical-align: middle; text-align: center;width: 50%;' src=\"/images/ok.png\">";
+
+                  let checkbox = "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input disabled style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" type=\"checkbox\" size=\"10px\"></td> ";
+                  if(elem.checkbox)
+                      checkbox = "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" class='"+elem.Tcpoa+"' name=\"list\" type=\"checkbox\" size=\"10px\"></td> "
+
+                  html += checkbox +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><button className=\"btn btn-info\"  onclick=\"document.location='/edit_doc?tcpoa=" + elem.Tcpoa + "'\" style=\"width: 60px;\">"+elem.Tcpoa+"</button></td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + new Date(elem.Actdte).toLocaleDateString() + "</span></td> " +
+                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\">"+flg+"</td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Template + "</span></td> " +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Dep + "</span></td> " +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Crtpsndessign + "</span></td> " +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d1 + "</span></td> " +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Agrpsndessign + "</span></td> " +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d2 + "</span></td>" +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Apppsndessign + "</span></td>" +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d3 + "</span></td>" +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Exepsndessign + "</span></td>" +
-                      "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#ffff66\"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + d4 + "</span></td>" +
+                      "<td "+elem.CrtpsndessignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Crtpsndessign + "</span></td> " +
+                      fd1 +
+                      "<td "+elem.AgrpsndessignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Agrpsndessign + "</span></td> " +
+                      fd2 +
+                      "<td "+elem.ApppsndessignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Apppsndessign + "</span></td>" +
+                      fd3 +
+                      "<td "+elem.ExepsndessignStyle+"><span style=\"vertical-align: middle; text-align: center;\"  size=\"10px\">" + elem.Exepsndessign + "</span></td>" +
+                      fd4 +
                       end;
               }
                   html += " "
@@ -331,6 +529,39 @@
 
           }
 
+          function getAllSelected() {
+              let res = "";
+
+              let lst = document.getElementsByName('list');
+              for(let i = 0; i < lst.length; i++){
+                  if(lst[i].checked){
+                      res = res + lst[i].className + ";";
+                  }
+              }
+              res+="$";
+              res = res.replace(";$", "");
+
+              let xhr = new XMLHttpRequest();
+              xhr.open('GET', '/check_tcpoa?tcpoalst=' + res, false);
+              xhr.send();
+              let rest = JSON.parse(xhr.responseText);
+
+              if(rest.control)
+                alert("Есть документы не прошедшие контроль.")
+
+              let doc = confirm("Вы подпишите " + rest.count + " документ(ов), хотите продолжить?");
+
+              if(doc) {
+                  document.getElementById("tcpoalst").value = res;
+
+                  fadeIn('.popup-fade');
+                  // let xhr1 = new XMLHttpRequest();
+                  // xhr1.open('GET', '/add_sign_lst?tcpoalst=' + res, false);
+                  // xhr1.send();
+                  //
+                  // document.location='/';
+              }
+          }
           // function isEmpty(str) {
           //     return (!str || 0 === str.length);
           // }
@@ -351,6 +582,10 @@
           });
 
           document.getElementById("mode2").addEventListener('change',function() {
+              checkAndRun();
+          });
+
+          document.getElementById("control").addEventListener('change',function() {
               checkAndRun();
           });
 
@@ -439,6 +674,7 @@
           function setParams() {
               let m1 = document.getElementById("mode").options[document.getElementById("mode").selectedIndex].value;
               let m2 = document.getElementById("mode1").options[document.getElementById("mode1").selectedIndex].value;
+              let control = document.getElementById("control").options[document.getElementById("control").selectedIndex].value;
               let m3 = document.getElementById("mode2").options[document.getElementById("mode2").selectedIndex].value;
               let sdate = document.getElementById("startTime").value;
               let edate = document.getElementById("endTime").value;
@@ -447,6 +683,7 @@
               setCookie('tmp', m1, {secure: true, 'max-age': 3600});
               setCookie('dep', m2, {secure: true, 'max-age': 3600});
               setCookie('fio', m3, {secure: true, 'max-age': 3600});
+              setCookie('control', control, {secure: true, 'max-age': 3600});
               if(sdate.length > 0)
                   setCookie('startTime', sdate, {secure: true, 'max-age': 3600});
               if(edate.length > 0)
@@ -462,13 +699,6 @@
 
               if(res) {
                   setParams();
-                  // let sort = document.getElementById('Sort').getElementsByTagName('option');
-
-                  // for (let i = 0; i < sort.length; i++) {
-                  //     if (sort[i].value === name) sort[i].selected = true;
-                  // }
-                  //
-                  // document.getElementById("btnStart").click();
               }
           }
 

@@ -8,10 +8,15 @@
 
 <div layout:fragment="title" style="margin-left: 50px">
   Создание шаблона
+    <nobr style='vertical-align: middle; text-align: center; margin-left: 500px;'>
+        <img style='vertical-align: middle; text-align: center;width: 15px;' src="/images/user.png">
+        <span th:text="${user}" style="vertical-align: middle; margin-left: 2px; font-size: 14px"></span>
+    </nobr>
 </div>
 
 <div layout:fragment="content">
   <div class="container" style="margin: 20px">
+      <br>
       <form th:action="@{/add_tmp_post}" method="post" style="display: inline" enctype="multipart/form-data">
         <input type="hidden" name="entby" id="entby" th:value="${user}">
         <nobr>
@@ -28,60 +33,62 @@
           <select id="crt" name="crt" style="margin-right: 30px">
             <option value="0">Нет</option>
             <option value="1">Руководитель Предприятия</option>
-            <option value="2">Руководитель Региона</option>
             <option value="3">Руководитель Отдела</option>
             <option value="4">Сотрудник</option>
-            <option value="10">Все</option>
+<!--            <option value="10">Все</option>-->
             <option value="21">Отдел персонала</option>
-            <option value="22">Транспортны отдел</option>
-            <option value="23">Юридический отдел</option>
           </select>
           Согласовать
-          <select id="app" name="app" style="margin-right: 30px">
-            <option value="0">Нет</option>
-            <option value="1">Руководитель Предприятия</option>
-            <option value="2">Руководитель Региона</option>
-            <option value="3">Руководитель Отдела</option>
-            <option value="4">Сотрудник</option>
-            <option value="10">Все</option>
-            <option value="21">Отдел персонала</option>
-            <option value="22">Транспортны отдел</option>
-            <option value="23">Юридический отдел</option>
-          </select>
-          Утвердить
           <select id="agr" name="agr" style="margin-right: 30px">
             <option value="0">Нет</option>
             <option value="1">Руководитель Предприятия</option>
-            <option value="2">Руководитель Региона</option>
             <option value="3">Руководитель Отдела</option>
             <option value="4">Сотрудник</option>
-            <option value="10">Все</option>
+<!--            <option value="10">Все</option>-->
             <option value="21">Отдел персонала</option>
-            <option value="22">Транспортны отдел</option>
-            <option value="23">Юридический отдел</option>
+          </select>
+          Утвердить
+          <select id="app" name="app" style="margin-right: 30px">
+            <option value="0">Нет</option>
+            <option value="1">Руководитель Предприятия</option>
+            <option value="3">Руководитель Отдела</option>
+            <option value="4">Сотрудник</option>
+<!--            <option value="10">Все</option>-->
+            <option value="21">Отдел персонала</option>
           </select>
           Исполнить
           <select id="exe" name="exe">
             <option value="0">Нет</option>
             <option value="1">Руководитель Предприятия</option>
-            <option value="2">Руководитель Региона</option>
             <option value="3">Руководитель Отдела</option>
             <option value="4">Сотрудник</option>
-            <option value="10">Все</option>
+<!--            <option value="10">Все</option>-->
             <option value="21">Отдел персонала</option>
-            <option value="22">Транспортны отдел</option>
-            <option value="23">Юридический отдел</option>
           </select>
         </nobr>
         <br><br>
-        <nobr>
-          В архив (мес.)
-          <input type="number" id="lifetime" name="lifetime" style="width: 40px; margin-right: 1061px">
-          Хранить (лет)
-          <input type="number" id="savetime" name="savetime" style="width: 40px;">
-        </nobr>
-        <br>
-        <br>
+          <nobr>
+              Комментарий исполнителю
+              <input type="text" name="comment" style="width: 350px; margin-right: 50px">
+              Пакетное подписание&nbsp;
+              <input type="checkbox" name="multisign" style="transform:scale(1.5); vertical-align: middle; text-align: center;margin-right: 50px">
+              <input type="hidden" name="multisign" value="0">
+              Шаблон (создание на основе)
+              <select style="height: 28px;  margin-bottom: 20px;" id="newtmp" name="newtmp">
+                  <option value="0">Нет</option>
+                  <option th:each="tmp : ${template}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>
+              </select>
+          </nobr>
+          <br>
+          <br>
+          <nobr>
+              В архив (мес.)
+              <input type="number" id="lifetime" name="lifetime" style="width: 40px; margin-right: 1061px">
+              Хранить (лет)
+              <input type="number" id="savetime" name="savetime" style="width: 40px;">
+          </nobr>
+          <br>
+          <br>
 
         <input id="fileupload" type="file" name="fileupload"/><br>
         <br>

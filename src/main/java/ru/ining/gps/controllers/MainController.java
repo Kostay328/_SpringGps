@@ -1,20 +1,27 @@
 package ru.ining.gps.controllers;
 
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.security.SecurityProperties;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import ru.ining.gps.entity.DocElem;
-import ru.ining.gps.entity.Psnmst;
-import ru.ining.gps.entity.Tcpoahdr;
+import ru.ining.gps.entity.*;
 import ru.ining.gps.mappers.CarMapper;
 import ru.ining.gps.mappers.DevMapper;
 import ru.ining.gps.mssqlmappers.UnionMapper;
@@ -22,16 +29,22 @@ import ru.ining.gps.mssqlmappers.UnionMapper;
 import org.zwobble.mammoth.DocumentConverter;
 import org.zwobble.mammoth.Result;
 
+import javax.mail.internet.MimeMessage;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
 import java.text.SimpleDateFormat;
+import java.util.concurrent.TimeUnit;
 
 import static ru.ining.gps.controllers.lib.AutoGpsLib.*;
 
@@ -47,6 +60,16 @@ public class MainController {
 
     @Value("${user.mssql.url}")
     private String msSqlUrl;
+
+
+    @Value("${MASTER_DEP_PERSONS_PSN}")
+    public String MASTER_DEP_PERSONS_PSN;
+
+    @Value("${MASTER_PSN}")
+    public String MASTER_PSN;
+
+    @Value("${BRN}")
+    public int BRN;
 
 
     public static class Tcpatmst{
@@ -67,10 +90,13 @@ public class MainController {
         private int Lifetime;
         private int Savetime;
         private byte[] Docx;
+        private String Comment;
+        private int Newtmp;
+        private Boolean Multisign;
 
         public Tcpatmst() {}
 
-        public Tcpatmst(int tcpat, String des, String entby, String lstchgby, Date entdte, Date lstchgdte, int rcdsts, int crtdoctyp, int agrdoctyp, int aprdoctyp, int exedoctyp, int lifetime, int savetime, byte[] docx) {
+        public Tcpatmst(int tcpat, String des, String entby, String lstchgby, Date entdte, Date lstchgdte, int rcdsts, int crtdoctyp, int agrdoctyp, int aprdoctyp, int exedoctyp, int lifetime, int savetime, byte[] docx, String comment, int Newtmp, Boolean multisign) {
             Tcpat = tcpat;
             Des = des;
             Entby = entby;
@@ -85,6 +111,33 @@ public class MainController {
             Lifetime = lifetime;
             Savetime = savetime;
             Docx = docx;
+            Comment = comment;
+            Newtmp = Newtmp;
+            Multisign = multisign;
+        }
+
+        public String getComment() {
+            return Comment;
+        }
+
+        public void setComment(String comment) {
+            Comment = comment;
+        }
+
+        public int getNewtmp() {
+            return Newtmp;
+        }
+
+        public void setNewtmp(int Newtmp) {
+            Newtmp = Newtmp;
+        }
+
+        public Boolean getMultisign() {
+            return Multisign;
+        }
+
+        public void setMultisign(Boolean multisign) {
+            Multisign = multisign;
         }
 
         public int getTcpat() {
@@ -471,6 +524,40 @@ public class MainController {
     }
 
 
+
+
+    @RequestMapping(value = { "/exe_doc" }, method = RequestMethod.POST)
+    public String exeDoc(@RequestParam int tcpoa) throws Exception {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+        SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy-MM-dd");
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        Tcpoahdr t = unionMapper.getTcpoahdrElem(tcpoa);
+        TcpatmstNF tcpatmstNF = unionMapper.getTcpatmstElem(Integer.parseInt(t.getTcpat()));
+//        TcpatmstNF tcpatmst = unionMapper.getTcpatmstElem(tcpatmstNF.getNewtmp());
+        int tcpoaNew = addDbDoc(tcpatmstNF.getNewtmp(), sdf1.format(new Date()));
+
+        updateTcpoahdr(msSqlUrl, tcpoaNew, sdf1.format(t.getStrdte()), sdf1.format(t.getStpdte()), Integer.parseInt(t.getQnt()), t.getControlflg(), t.getControlmsg());
+
+        return "redirect:/edit_doc?tcpoa="+tcpoaNew;
+    }
+
+    @RequestMapping(value = { "/reject_doc" }, method = RequestMethod.GET)
+    @ResponseBody
+    public String rejectDoc(@RequestParam int tcpoa, @RequestParam String msg) {
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        Tcpoahdr t = unionMapper.getTcpoahdrElem(tcpoa);
+
+        if(t.getAgrpsnsign().contains(p.getPsn()) && t.getAgrpos().length() == 0)
+            unionMapper.updateTcpoahdrRejectAgr(msg, tcpoa);
+        else if(t.getApppsnsign().contains(p.getPsn()) && t.getApppos().length() == 0)
+            unionMapper.updateTcpoahdrRejectApp(msg, tcpoa);
+        else if(t.getExepsnsign().contains(p.getPsn()) && t.getExepos().length() == 0)
+            unionMapper.updateTcpoahdrRejectExe(msg, tcpoa);
+
+
+            return new Gson().toJson(true);
+    }
+
     @RequestMapping(value = { "/check_pass" }, method = RequestMethod.GET)
     @ResponseBody
     public String checkPass(@RequestParam String pass, @RequestParam String psn) {
@@ -478,18 +565,313 @@ public class MainController {
         return new Gson().toJson(new BCryptPasswordEncoder().matches(pass, psnmst.getNewpass()));
     }
 
-    @RequestMapping(value = { "/add_sign" }, method = RequestMethod.POST)
-    public String addSign(@RequestParam int tcpoa, @RequestParam String psn) {
+    @RequestMapping(value = { "/check_code" }, method = RequestMethod.GET)
+    @ResponseBody
+    public String checkCode(@RequestParam String tcpoalst, @RequestParam String code) {
+        boolean res = true;
+        String[] sl = tcpoalst.split(";");
+        for (String s : sl) {
+            int o = Integer.parseInt(s);
+            Tcpoahdr t = unionMapper.getTcpoahdrElem(o);
+//            TcpatmstNF tnf = unionMapper.getTcpatmstElem(Integer.parseInt(t.getTcpat()));
+            if (!t.getCode().equals(code))
+                res = false;
+        }
+
+        if (res){
+            for (String s : sl) {
+                int o = Integer.parseInt(s);
+                unionMapper.updateTcpoahdrCode("", o);
+            }
+        }
+
+        return new Gson().toJson(res);
+    }
+
+    public void addSignElem(int tcpoa, String psn) throws IOException {
+        Tcpoahdr tcpoahdr = unionMapper.getTcpoahdrElem(tcpoa);
         Psnmst psnmst = unionMapper.getPsnmst(psn);
-        unionMapper.addSign(psnmst.getPsn(), psnmst.getDes(), psnmst.getNewpass(), new Date(), tcpoa);
+
+
+        TcpatmstNF tcpatmst = unionMapper.getTcpatmstElem(Integer.parseInt(tcpoahdr.getTcpat()));
+
+        String psnCrt = "";
+        String psndesCrt = "";
+        String psnAgr = "";
+        String psndesAgr = "";
+        String psnApp = "";
+        String psndesApp = "";
+        String psnExe = "";
+        String psndesExe = "";
+
+        if(tcpoahdr.getCrtpsnsign().length() > 0) {
+            psnCrt = tcpoahdr.getCrtpsnsign();
+            psndesCrt = tcpoahdr.getCrtpsndessign();
+        }
+
+        if(tcpoahdr.getAgrpsnsign().length() > 0) {
+            psnAgr = tcpoahdr.getAgrpsnsign();
+            psndesAgr = tcpoahdr.getAgrpsndessign();
+        }
+
+        if(tcpoahdr.getApppsnsign().length() > 0) {
+            psnApp = tcpoahdr.getApppsnsign();
+            psndesApp = tcpoahdr.getApppsndessign();
+        }
+
+        if(tcpoahdr.getExepsnsign().length() > 0) {
+            psnExe = tcpoahdr.getExepsnsign();
+            psndesExe = tcpoahdr.getExepsndessign();
+        }
+
+
+        String cscdes = "";
+        try {
+            cscdes = unionMapper.getCscdes(getPsnLogin(msSqlUrl));
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        if(cscdes == null)
+            cscdes = "не найден";
+
+        String cscpsn = "";
+        try {
+            cscpsn = unionMapper.getCscpsn(getPsnLogin(msSqlUrl));
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        if(cscpsn == null)
+            cscpsn = "не найден";
+
+
+        if(!tcpatmst.getCrtdoctyp().equals("0") && !tcpoahdr.getCrtpsnsign().equals(psn) && tcpoahdr.getCrtpsnsign().length() == 0){
+            if(tcpatmst.getCrtdoctyp().equals("1")) {
+                psnCrt = MASTER_PSN;
+                psndesCrt = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getCrtdoctyp().equals("3")){
+                psnCrt = cscpsn;
+                psndesCrt = cscdes;
+            }else if(tcpatmst.getCrtdoctyp().equals("4")) {
+                psnCrt = psn;
+                psndesCrt = psnmst.getDes();
+            }else if(tcpatmst.getCrtdoctyp().equals("21")){
+                psnCrt = MASTER_DEP_PERSONS_PSN;
+                psndesCrt = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnCrt="<NNV>";
+        }else if(!tcpatmst.getAgrdoctyp().equals("0") && !tcpoahdr.getAgrpsnsign().equals(psn) && tcpoahdr.getAgrpsnsign().length() == 0){
+            if(tcpatmst.getAgrdoctyp().equals("1")) {
+                psnAgr = MASTER_PSN;
+                psndesAgr = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getAgrdoctyp().equals("3")){
+                psnAgr = cscpsn;
+                psndesAgr = cscdes;
+            }else if(tcpatmst.getAgrdoctyp().equals("4")) {
+                psnAgr = psn;
+                psndesAgr = psnmst.getDes();
+            }else if(tcpatmst.getAgrdoctyp().equals("21")){
+                psnAgr = MASTER_DEP_PERSONS_PSN;
+                psndesAgr = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnAgr="<NNV>";
+        }else if(!tcpatmst.getAprdoctyp().equals("0") && !tcpoahdr.getApppsnsign().equals(psn) && tcpoahdr.getApppsnsign().length() == 0){
+            if(tcpatmst.getAprdoctyp().equals("1")) {
+                psnApp = MASTER_PSN;
+                psndesApp = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getAprdoctyp().equals("3")){
+                psnApp = cscpsn;
+                psndesApp = cscdes;
+            }else if(tcpatmst.getAprdoctyp().equals("4")) {
+                psnApp = psn;
+                psndesApp = psnmst.getDes();
+            }else if(tcpatmst.getAprdoctyp().equals("21")){
+                psnApp = MASTER_DEP_PERSONS_PSN;
+                psndesApp = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnApp="<NNV>";
+        }else if(!tcpatmst.getExedoctyp().equals("0") && !tcpoahdr.getExepsnsign().equals(psn) && tcpoahdr.getExepsnsign().length() == 0){
+            if(tcpatmst.getExedoctyp().equals("1")) {
+                psnExe = MASTER_PSN;
+                psndesExe = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getExedoctyp().equals("3")){
+                psnExe = cscpsn;
+                psndesExe = cscdes;
+            }else if(tcpatmst.getExedoctyp().equals("4")) {
+                psnExe = psn;
+                psndesExe = psnmst.getDes();
+            }else if(tcpatmst.getExedoctyp().equals("21")){
+                psnExe = MASTER_DEP_PERSONS_PSN;
+                psndesExe = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnExe="<NNV>";
+        }
+
+//        if(((tcpoahdr.getCrtpos().length()>0 || tcpoahdr.getApppos().length()>0 || tcpoahdr.getAgrpos().length()>0 || tcpoahdr.getExepos().length()>0) || (tcpoahdr.getCrtpsnsign().equals("<NNV>") && tcpoahdr.getApppsnsign().equals("<NNV>") && tcpoahdr.getAgrpsnsign().equals("<NNV>") && tcpoahdr.getExepsnsign().equals("<NNV>"))) && tcpoahdr.getDocx() == null) {
+//            System.out.println("QWERTY");
+//        }
+
+
+        AddDoc ad = unionMapper.getDocElem(tcpoa);
+        List<DocxReplace> drl = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+
+        drl.add(new DocxReplace("ХфиоРуководителяХ", cscdes));
+        drl.add(new DocxReplace("ХномерДокТаХ", ad.getDep()));
+        drl.add(new DocxReplace("ХдатаХ", sdf.format(ad.Actdte)));
+        drl.add(new DocxReplace("ХФамилияИмяОтчествоХ",ad.Sname + " " + ad.Fname+ " " + ad.Parname));
+        drl.add(new DocxReplace("ХфиоХ", ad.FIO));
+        drl.add(new DocxReplace("ХтабНомерХ", ad.Tabnum+""));
+        if(!sdf.format(ad.Strdte).contains("01.01.1901"))
+            drl.add(new DocxReplace("ХдатасХ", sdf.format(ad.Strdte)));
+        if(!sdf.format(ad.Stpdte).contains("01.01.1901"))
+            drl.add(new DocxReplace("ХдатаПоХ", sdf.format(ad.Stpdte)));
+        if(ad.Qnt>0)
+            drl.add(new DocxReplace("ХколичествоХ", ad.Qnt+""));
+        drl.add(new DocxReplace("ХпредприятиеХ", ad.Brndes));
+        drl.add(new DocxReplace("ХнаименованиеПартнераХ", ad.getPrt()));
+        drl.add(new DocxReplace("ХсуммаХ", ad.Amt+""));
+        drl.add(new DocxReplace("ХотделХ", ad.Dep));
+        drl.add(new DocxReplace("ХСотрудникАдресХ ", ad.Adress));
+        drl.add(new DocxReplace("ХСотрудникТелХ ", ad.Tel));
+        drl.add(new DocxReplace("ХСотрудникЕмайлХ ", ad.Email));
+        drl.add(new DocxReplace("ХПаспортСерНомХ ", ad.Passer+ad.Pasnum));
+        drl.add(new DocxReplace("ХПаспортДатаВыдачиХ ", sdf.format(ad.Distrdte)));
+        drl.add(new DocxReplace("ХПаспортКемВыданХ ", ad.Distrby));
+        drl.add(new DocxReplace("ХДолжностьХ ", ad.Func));
+
+
+        if(tcpatmst.getCrtdoctyp().equals("0"))
+            psnCrt = "<NNV>";
+
+        if(tcpatmst.getAgrdoctyp().equals("0"))
+            psnAgr = "<NNV>";
+
+        if(tcpatmst.getAprdoctyp().equals("0"))
+            psnApp = "<NNV>";
+
+        if(tcpatmst.getExedoctyp().equals("0"))
+            psnExe = "<NNV>";
+
+        int controlflg = 2;
+        String controlmsg = "Прошел контроль";
+
+        if(ad.getСontrolflg() == 0) {
+            long diffInMillies = Math.abs(ad.getStrdte().getTime() - ad.getStpdte().getTime());
+            long diff = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
+            if ((int) diff != ad.Qnt) {
+                controlflg = 1;
+                controlmsg = "Количество не соответствует заданным датам";
+            }
+        }else {
+            controlflg = ad.getСontrolflg();
+            controlmsg = ad.getСontrolmsg();
+        }
+
+        unionMapper.updateTcpoahdr(psnCrt, psndesCrt, psnAgr, psndesAgr, psnApp, psndesApp, psnExe, psndesExe, controlflg, controlmsg, tcpoa);
+
+        if(tcpoahdr.getCrtpsnsign().equals(psn) && tcpoahdr.getCrtpos().length() == 0) {
+            unionMapper.addSignCrt(psn, psnmst.getDes(), psnmst.getNewpass(), new Date(), tcpoa);
+            if(tcpoahdr.getDocx() == null || tcpoahdr.getDocx().length() == 0)
+                setDocxTcpoahdr(msSqlUrl, tcpoa, updateDocx(new XWPFDocument(new ByteArrayInputStream(getDocx(msSqlUrl,ad.getTcpat()))), drl).doc);
+        }else if(tcpoahdr.getAgrpsnsign().equals(psn) && tcpoahdr.getAgrpos().length() == 0) {
+            unionMapper.addSignAgr(psn, psnmst.getDes(), psnmst.getNewpass(), new Date(), tcpoa);
+            if(tcpoahdr.getDocx() == null || tcpoahdr.getDocx().length() == 0)
+                setDocxTcpoahdr(msSqlUrl, tcpoa, updateDocx(new XWPFDocument(new ByteArrayInputStream(getDocx(msSqlUrl,ad.getTcpat()))), drl).doc);
+        }else if(tcpoahdr.getApppsnsign().equals(psn) && tcpoahdr.getApppos().length() == 0) {
+            unionMapper.addSignApp(psn, psnmst.getDes(), psnmst.getNewpass(), new Date(), tcpoa);
+            if(tcpoahdr.getDocx() == null || tcpoahdr.getDocx().length() == 0)
+                setDocxTcpoahdr(msSqlUrl, tcpoa, updateDocx(new XWPFDocument(new ByteArrayInputStream(getDocx(msSqlUrl,ad.getTcpat()))), drl).doc);
+        }else if(tcpoahdr.getExepsnsign().equals(psn) && tcpoahdr.getExepos().length() == 0) {
+            unionMapper.addSignExe(psn, psnmst.getDes(), psnmst.getNewpass(), new Date(), tcpoa);
+            if(tcpoahdr.getDocx() == null || tcpoahdr.getDocx().length() == 0)
+                setDocxTcpoahdr(msSqlUrl, tcpoa, updateDocx(new XWPFDocument(new ByteArrayInputStream(getDocx(msSqlUrl,ad.getTcpat()))), drl).doc);
+        }
+    }
+
+    @RequestMapping(value = { "/add_sign" }, method = RequestMethod.POST)
+    public String addSign(@RequestParam int tcpoa, @RequestParam String psn) throws IOException {
+        addSignElem(tcpoa, psn);
 
         return "redirect:/";
     }
 
+    @RequestMapping(value = { "/add_sign_lst" }, method = RequestMethod.POST)
+    public String addSignLst(@RequestParam String tcpoalst) throws IOException {
+        String psn = getPsnLogin(msSqlUrl);
+        String[] sl = tcpoalst.split(";");
+        for (String tcpoa:sl) {
+            Tcpoahdr tcp = unionMapper.getTcpoahdrElem(Integer.parseInt(tcpoa));
+            if((tcp.getCrtpsndessign().length() > 0 && !tcp.getCrtpsndessign().contains("не найден") && tcp.getCrtpos().length()==0 && tcp.getCrtpsnsign().equals(psn)) ||
+            (tcp.getAgrpsndessign().length() > 0 && !tcp.getAgrpsndessign().contains("не найден") && tcp.getAgrpos().length()==0 && tcp.getAgrpsnsign().equals(psn)) ||
+            (tcp.getApppsndessign().length() > 0 && !tcp.getApppsndessign().contains("не найден") && tcp.getApppos().length()==0 && tcp.getApppsnsign().equals(psn)) ||
+            (tcp.getExepsndessign().length() > 0 && !tcp.getExepsndessign().contains("не найден") && tcp.getExepos().length()==0) && tcp.getExepsnsign().equals(psn)) {
+                addSignElem(Integer.parseInt(tcpoa), psn);
+            }
+        }
+
+
+        return "redirect:/";
+    }
+
+    class Check{
+        int count;
+        boolean control;
+
+        public int getCount() {
+            return count;
+        }
+
+        public void setCount(int count) {
+            this.count = count;
+        }
+
+        public boolean isControl() {
+            return control;
+        }
+
+        public void setControl(boolean control) {
+            this.control = control;
+        }
+
+        public Check(int count, boolean control) {
+            this.count = count;
+            this.control = control;
+        }
+    }
+
+    @RequestMapping(value = { "/check_tcpoa" }, method = RequestMethod.GET)
+    @ResponseBody
+    public String check(@RequestParam String tcpoalst) throws IOException {
+        String psn = getPsnLogin(msSqlUrl);
+        int count = 0;
+        String[] sl = tcpoalst.split(";");
+        boolean control = false;
+        for (String tcpoa:sl) {
+            Tcpoahdr tcp = unionMapper.getTcpoahdrElem(Integer.parseInt(tcpoa));
+            if((tcp.getCrtpsndessign().length() > 0 && !tcp.getCrtpsndessign().contains("не найден") && tcp.getCrtpos().length()==0 && tcp.getCrtpsnsign().equals(psn)) ||
+            (tcp.getAgrpsndessign().length() > 0 && !tcp.getAgrpsndessign().contains("не найден") && tcp.getAgrpos().length()==0 && tcp.getAgrpsnsign().equals(psn)) ||
+            (tcp.getApppsndessign().length() > 0 && !tcp.getApppsndessign().contains("не найден") && tcp.getApppos().length()==0 && tcp.getApppsnsign().equals(psn)) ||
+            (tcp.getExepsndessign().length() > 0 && !tcp.getExepsndessign().contains("не найден") && tcp.getExepos().length()==0) && tcp.getExepsnsign().equals(psn)) {
+                count++;
+
+                if(tcp.getControlflg() == 2) { }
+                else if(!control && tcp.getControlflg() == 1)
+                    control = true;
+            }
+        }
+
+        return new Gson().toJson(new Check(count, control));
+    }
+
     @RequestMapping(value = { "/multi_add_doc" }, method = RequestMethod.GET)
     public String addMultiDoc(Model model) {
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        model.addAttribute("user", p.getDes());
         SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy-MM-dd");
-        model.addAttribute("template",unionMapper.getTmpLst());
+        if(getPsnLogin(msSqlUrl).equals(MASTER_PSN) || getPsnLogin(msSqlUrl).equals(MASTER_DEP_PERSONS_PSN))
+            model.addAttribute("template",unionMapper.getTmpLst());
+        else
+            model.addAttribute("template",unionMapper.getTmpLstWO());
         model.addAttribute("date", sdf1.format(new Date()));
         model.addAttribute("deps", unionMapper.getDepLst());
 
@@ -498,7 +880,7 @@ public class MainController {
 
     @RequestMapping(value = { "/multi_add" }, method = RequestMethod.POST)
     public String multiAdd(@RequestParam int tmp, @RequestParam String mode, @RequestParam String date, @RequestParam String wp, @RequestParam String date1, @RequestParam String date2, @RequestParam String qnt) throws ParseException {
-        String psn_ = getTcpoaLogin(msSqlUrl);
+        String psn_ = getPsnLogin(msSqlUrl);
         String psndes_ = unionMapper.getPsndes(psn_);
 
         List<String> sl;
@@ -521,17 +903,27 @@ public class MainController {
 
     @RequestMapping(value = { "/add_doc" }, method = RequestMethod.GET)
     public String addDoc(Model model) {
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        model.addAttribute("user", p.getDes());
         SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy-MM-dd");
-        List<Templeate> t1 = unionMapper.getTmpLst();
-        model.addAttribute("template",t1);
+        if(getPsnLogin(msSqlUrl).equals(MASTER_PSN) || getPsnLogin(msSqlUrl).equals(MASTER_DEP_PERSONS_PSN))
+            model.addAttribute("template",unionMapper.getTmpLst());
+        else
+            model.addAttribute("template",unionMapper.getTmpLstWO());
         model.addAttribute("date", sdf1.format(new Date()));
         return "add_doc";
     }
 
     @RequestMapping(value = { "/edit_doc" }, method = RequestMethod.GET)
     public String editDoc(@RequestParam int tcpoa, Model model) throws Exception {
-        List<Templeate> t1 = unionMapper.getTmpLst();
-        model.addAttribute("tmp_", t1);
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        Psnbrn psnbrn = unionMapper.getPsnbrn(p.getPsn());
+        model.addAttribute("user", p.getDes());
+        model.addAttribute("sms", psnbrn.getAuthorisation().equals("1"));
+        if(getPsnLogin(msSqlUrl).equals(MASTER_PSN) || getPsnLogin(msSqlUrl).equals(MASTER_DEP_PERSONS_PSN))
+            model.addAttribute("tmp_",unionMapper.getTmpLst());
+        else
+            model.addAttribute("ymp_",unionMapper.getTmpLstWO());
         model.addAttribute("doc_src", "/get_replaced_doc?tcpoa=" + tcpoa);
         SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
         SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy-MM-dd");
@@ -548,14 +940,14 @@ public class MainController {
         model.addAttribute("tcpoa", ad.Tcpoa+"");
         model.addAttribute("tmp", ad.Template);
         model.addAttribute("entdte", sdf.format(ad.Actdte));
-        model.addAttribute("psn", getTcpoaLogin(msSqlUrl));
+        model.addAttribute("psn", getPsnLogin(msSqlUrl));
 
 
         byte[] filearray = getDocx(msSqlUrl, ad.Tcpat);
 
-        boolean strDte = filearray != null && foundInDocx(new XWPFDocument(new ByteArrayInputStream(filearray)), "<датаС>");
-        boolean stpDte = filearray != null && sdf.format(ad.Stpdte).contains("01.01.1901") && foundInDocx(new XWPFDocument(new ByteArrayInputStream(filearray)), "<датаПо>");
-        boolean clnTeg = filearray != null && foundInDocx(new XWPFDocument(new ByteArrayInputStream(filearray)), "<количество>");
+        boolean strDte = filearray != null && foundInDocx(new XWPFDocument(new ByteArrayInputStream(filearray)), "ХдатасХ");
+        boolean stpDte = filearray != null && foundInDocx(new XWPFDocument(new ByteArrayInputStream(filearray)), "ХдатаПоХ");
+        boolean clnTeg = filearray != null && foundInDocx(new XWPFDocument(new ByteArrayInputStream(filearray)), "ХколичествоХ");
 
         if(strDte)
             model.addAttribute("date1", strdte);
@@ -572,14 +964,59 @@ public class MainController {
         model.addAttribute("edteflg", stpDte);
         model.addAttribute("cntflg", clnTeg);
 
+        model.addAttribute("btnflg", ad.Crtpos.length() == 0);
 
-        model.addAttribute("params", (strDteFlg || !strDte) & (stpDteFlg || !stpDte) & (cntFlg || !clnTeg));
+
+        String psn = getPsnLogin(msSqlUrl);
+        Tcpoahdr tcpoahdr = unionMapper.getTcpoahdrElem(tcpoa);
+
+        String s = tcpoahdr.getRejectmsg();
+
+        model.addAttribute("msgFlg", s.length() > 0);
+        model.addAttribute("msg", s);
+
+        System.out.println(tcpoahdr.getControlflg());
+
+        model.addAttribute("controlMsg", tcpoahdr.getControlflg() != 0);
+        model.addAttribute("cMsg", tcpoahdr.getControlmsg());
+
+        TcpatmstNF tcpatmst = unionMapper.getTcpatmstElem(Integer.parseInt(tcpoahdr.getTcpat()));
+        model.addAttribute("commentExe", tcpoahdr.getExepsndessign().length() > 0 && tcpatmst.getComment().length() > 0);
+        model.addAttribute("comment", tcpatmst.getComment());
+
+        boolean canSignNow = false;
+
+
+            if(tcpoahdr.getCrtpsnsign().equals(psn) && tcpoahdr.getCrtpos().length() == 0) {
+                canSignNow = true;
+            }
+
+            if(tcpoahdr.getAgrpsnsign().equals(psn) && tcpoahdr.getAgrpos().length() == 0) {
+                canSignNow = true;
+            }
+
+            if(tcpoahdr.getApppsnsign().equals(psn) && tcpoahdr.getApppos().length() == 0) {
+                canSignNow = true;
+            }
+
+            if(tcpoahdr.getExepsnsign().equals(psn) && tcpoahdr.getExepos().length() == 0) {
+                canSignNow = true;
+            }
+
+
+
+
+        model.addAttribute("params", canSignNow && (strDteFlg || !strDte) & (stpDteFlg || !stpDte) & (cntFlg || !clnTeg));
+
+        model.addAttribute("create", tcpoahdr.getExepsndessign().length() > 0 && tcpatmst.getNewtmp() > 0);
 
         return "edit_doc";
     }
 
     @RequestMapping(value = { "/edit_tmp" }, method = RequestMethod.GET)
     public String editTmp(@RequestParam int tcpat, Model model, RedirectAttributes redirectAttr) {
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        model.addAttribute("user", p.getDes());
         Tcpatmst t = getTcpatmst(msSqlUrl, tcpat);
 
         model.addAttribute("docx", (t.getDocx() != null && t.getDocx().length>0));
@@ -592,6 +1029,10 @@ public class MainController {
         model.addAttribute("Exedoctyp", t.getExedoctyp());
         model.addAttribute("Lifetime", t.getLifetime());
         model.addAttribute("Savetime", t.getSavetime());
+        model.addAttribute("template",unionMapper.getTmpLst());
+        model.addAttribute("comment",t.getComment());
+        model.addAttribute("newtmp",t.getNewtmp());
+        model.addAttribute("multisign",t.getMultisign());
 //        redirectAttr.addFlashAttribute("Docx", new MockMultipartFile("test.docx", t.getDocx()));
 
         return "tmp_edit";
@@ -599,6 +1040,10 @@ public class MainController {
 
     @RequestMapping(value = { "/add_tmp" }, method = RequestMethod.GET)
     public String addTmp(Model model) {
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        model.addAttribute("user", p.getDes());
+        model.addAttribute("template",unionMapper.getTmpLst());
+
         return "tmp_add";
     }
 
@@ -713,8 +1158,20 @@ public class MainController {
         private java.sql.Timestamp Agrdtesign;
         private java.sql.Timestamp Appdtesign;
         private java.sql.Timestamp Exedtesign;
+        private String Rejectmsg;
+        private int Сontrolflg;
+        private String Сontrolmsg;
+        private String Func;
+        private String Adress;
+        private String Tel;
+        private String Email;
+        private String Passer;
+        private String Pasnum;
+        private Date Distrdte;
+        private String Distrby;
+        private String FIO;
 
-        public AddDoc(int tcpat, int tcpoa, String dep, String template, String sname, String fname, String parname, Date strdte, Date stpdte, int qnt, String prt, Date entdte, Date actdte, String tcpoext, String ptndes, Double amt, String brndes, String tabnum, String exesign, String crtpsnsign, String crtpsndessign, String crtpos, String crtsign, String agrpsnsign, String agrpsndessign, String agrpos, String agrsign, String apppsnsign, String apppsndessign, String apppos, String appsign, String exepsnsign, String exepsndessign, String exepos, Timestamp crtdtesign, Timestamp agrdtesign, Timestamp appdtesign, Timestamp exedtesign) {
+        public AddDoc(int tcpat, int tcpoa, String dep, String template, String sname, String fname, String parname, Date strdte, Date stpdte, int qnt, String prt, Date entdte, Date actdte, String tcpoext, String ptndes, Double amt, String brndes, String tabnum, String exesign, String crtpsnsign, String crtpsndessign, String crtpos, String crtsign, String agrpsnsign, String agrpsndessign, String agrpos, String agrsign, String apppsnsign, String apppsndessign, String apppos, String appsign, String exepsnsign, String exepsndessign, String exepos, Timestamp crtdtesign, Timestamp agrdtesign, Timestamp appdtesign, Timestamp exedtesign, String rejectmsg, int сontrolflg, String сontrolmsg, String func, String adress, String tel, String email, String passer, String pasnum, Date distrdte, String distrby, String FIO) {
             Tcpat = tcpat;
             Tcpoa = tcpoa;
             Dep = dep;
@@ -753,6 +1210,34 @@ public class MainController {
             Agrdtesign = agrdtesign;
             Appdtesign = appdtesign;
             Exedtesign = exedtesign;
+            Rejectmsg = rejectmsg;
+            Сontrolflg = сontrolflg;
+            Сontrolmsg = сontrolmsg;
+            Func = func;
+            Adress = adress;
+            Tel = tel;
+            Email = email;
+            Passer = passer;
+            Pasnum = pasnum;
+            Distrdte = distrdte;
+            Distrby = distrby;
+            this.FIO = FIO;
+        }
+
+        public int getСontrolflg() {
+            return Сontrolflg;
+        }
+
+        public void setСontrolflg(int сontrolflg) {
+            Сontrolflg = сontrolflg;
+        }
+
+        public String getСontrolmsg() {
+            return Сontrolmsg;
+        }
+
+        public void setСontrolmsg(String сontrolmsg) {
+            Сontrolmsg = сontrolmsg;
         }
 
         public int getTcpat() {
@@ -1058,6 +1543,111 @@ public class MainController {
         public void setExedtesign(Timestamp exedtesign) {
             Exedtesign = exedtesign;
         }
+
+        public String getRejectmsg() {
+            return Rejectmsg;
+        }
+
+        public void setRejectmsg(String rejectmsg) {
+            Rejectmsg = rejectmsg;
+        }
+
+        public String getFunc() {
+            return Func;
+        }
+
+        public void setFunc(String func) {
+            Func = func;
+        }
+
+        public String getAdress() {
+            return Adress;
+        }
+
+        public void setAdress(String adress) {
+            Adress = adress;
+        }
+
+        public String getTel() {
+            return Tel;
+        }
+
+        public void setTel(String tel) {
+            Tel = tel;
+        }
+
+        public String getEmail() {
+            return Email;
+        }
+
+        public void setEmail(String email) {
+            Email = email;
+        }
+
+        public String getPasser() {
+            return Passer;
+        }
+
+        public void setPasser(String passer) {
+            Passer = passer;
+        }
+
+        public String getPasnum() {
+            return Pasnum;
+        }
+
+        public void setPasnum(String pasnum) {
+            Pasnum = pasnum;
+        }
+
+        public Date getDistrdte() {
+            return Distrdte;
+        }
+
+        public void setDistrdte(Date distrdte) {
+            Distrdte = distrdte;
+        }
+
+        public String getDistrby() {
+            return Distrby;
+        }
+
+        public void setDistrby(String distrby) {
+            Distrby = distrby;
+        }
+
+        public String getFIO() {
+            return FIO;
+        }
+
+        public void setFIO(String FIO) {
+            this.FIO = FIO;
+        }
+    }
+
+    public String getHtmlElemReject(String msg, String psnDes){
+        if(msg.length() > 121)
+            msg = msg.substring(0, 120);
+        return  "<div style=\"color: #CD5C5C; font-size: 20px;border: 2px solid #CD5C5C;padding: 5px;width: 600px;height: 150px\">" +
+                "<b>Кем отклонен: " + psnDes +
+                "</b><br><b style=\"word-break:break-all;\">Комментарий: " + msg +
+                "</b></div><br>";
+    }
+
+    public String getHtmlElem(String date, String psnDes, String hash, String sDte, String eDte, String brnDes){
+        return  "<div style=\"border: 2px solid #2077bb;padding: 5px;width: 600px;\">" +
+                "<b>Документ подписан: " + date +
+                "</b><br>" +
+                "<b>Усиленной Простой Электронной Подписью" +
+                "</b><br>" +
+                "<b>Кому выдан: " + psnDes +
+                "</b><br>" +
+                "<b>Сертификат: <br>" + hash +
+                "</b><br>" +
+                "<b>Действителен с " + sDte + " по " + eDte +
+                "</b><br>" +
+                "<b>Предприятие: " + brnDes +
+                "</b></div><br>";
     }
 
     @RequestMapping(value = { "/get_replaced_doc" }, method = RequestMethod.GET)
@@ -1069,54 +1659,94 @@ public class MainController {
         AddDoc ad = unionMapper.getDocElem(tcpoa);
 
         List<DocxReplace> drl = new ArrayList<>();
-        drl.add(new DocxReplace("<номерДокТа>", ad.getDep()));
-        drl.add(new DocxReplace("<дата>", sdf.format(ad.Actdte)));
-        drl.add(new DocxReplace("<ФИО>",ad.Sname + " " + ad.Fname+ " " + ad.Parname));
-        drl.add(new DocxReplace("<ТабНомер>", ad.Tabnum+""));
+        String csc = "";
+        try {
+            csc = unionMapper.getCscdes(getPsnLogin(msSqlUrl));
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        if(csc == null)
+            csc = "";
+
+        drl.add(new DocxReplace("ХфиоРуководителяХ", csc));
+        drl.add(new DocxReplace("ХномерДокТаХ", ad.getDep()));
+        drl.add(new DocxReplace("ХдатаХ", sdf.format(ad.Actdte)));
+        drl.add(new DocxReplace("ХфиоХ",ad.Sname + " " + ad.Fname+ " " + ad.Parname));
+        drl.add(new DocxReplace("ХтабНомерХ", ad.Tabnum+""));
         if(!sdf.format(ad.Strdte).contains("01.01.1901"))
-            drl.add(new DocxReplace("<датаС>", sdf.format(ad.Strdte)));
+            drl.add(new DocxReplace("ХдатасХ", sdf.format(ad.Strdte)));
         if(!sdf.format(ad.Stpdte).contains("01.01.1901"))
-            drl.add(new DocxReplace("<датаПо>", sdf.format(ad.Stpdte)));
-        if(ad.Qnt>999)
-            drl.add(new DocxReplace("<количество>", ad.Qnt+""));
-        drl.add(new DocxReplace("<предприятие>", ad.Brndes));
-        drl.add(new DocxReplace("<наименованиеПартнера>", ad.getPrt()));
-        drl.add(new DocxReplace("<сумма>", ad.Amt+""));
-        drl.add(new DocxReplace("<отдел>", ad.Dep));
+            drl.add(new DocxReplace("ХдатаПоХ", sdf.format(ad.Stpdte)));
+        if(ad.Qnt>0)
+            drl.add(new DocxReplace("ХколичествоХ", ad.Qnt+""));
+        drl.add(new DocxReplace("ХпредприятиеХ", ad.Brndes));
+        drl.add(new DocxReplace("ХнаименованиеПартнераХ", ad.getPrt()));
+        drl.add(new DocxReplace("ХсуммаХ", ad.Amt+""));
+        drl.add(new DocxReplace("ХотделХ", ad.Dep));
+        drl.add(new DocxReplace("ХСотрудникАдресХ ", ad.Adress));
+        drl.add(new DocxReplace("ХСотрудникТелХ ", ad.Tel));
+        drl.add(new DocxReplace("ХСотрудникЕмайлХ ", ad.Email));
+        drl.add(new DocxReplace("ХПаспортСерНомХ ", ad.Passer+ad.Pasnum));
+        drl.add(new DocxReplace("ХПаспортДатаВыдачиХ ", sdf.format(ad.Distrdte)));
+        drl.add(new DocxReplace("ХПаспортКемВыданХ ", ad.Distrby));
+        drl.add(new DocxReplace("ХДолжностьХ ", ad.Func));
 
         URD rd = updateDocx(new XWPFDocument(new ByteArrayInputStream(getDocx(msSqlUrl,ad.getTcpat()))), drl);
         XWPFDocument docx = rd.doc;
 
-        if(ad.Crtpsnsign.length() > 0) {
-            Psnmst psnmst = unionMapper.getPsnmst(ad.Crtpsnsign);
-            LocalDate ld1 = psnmst.getLstchgdte().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-            ld1 = ld1.plusMonths(15);
 
-            String html = "<html>" +
-                    "<head>" +
-                    "<style>" +
-                    "div{" +
-                    "color: #2077bb;" +
-                    "font-size: 15px;" +
-                    "</style>" +
-                    "</head>" +
-                    "<div style=\"border: 2px solid #2077bb;padding: 5px;width: 600px;\">" +
-                    "<b>Документ подписан: " + sdf.format(ad.Crtdtesign) +
-                    "</b><br>" +
-                    "<b>Усиленной Простой Электронной Подписью" +
-                    "</b><br>" +
-                    "<b>Кому выдан: " + ad.Crtpsndessign +
-                    "</b><br>" +
-                    "<b>Сертификат: <br>" + ad.Crtpos +
-                    "</b><br>" +
-                    "<b>Предприятие: ?" +
-                    "</b><br>" +
-                    "<b>Действителен с " + sdf.format(psnmst.getLstchgdte()) + " по " + sdf.format(convertToDateViaInstant(ld1)) +
-                    "</b></div>" +
-                    "</html>";
+        String html ="<html>" +
+                "<head>" +
+                "<style>" +
+                "div{" +
+                "color: #2077bb;" +
+                "font-size: 15px;" +
+                "</style>" +
+                "</head>";
 
-            docx = setImgDocx(docx, "<количество>", html);
+        Psnmst psnmst = unionMapper.getPsnmst(ad.Crtpsnsign);
+        LocalDate ld1 = psnmst.getLstchgdte().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        ld1 = ld1.plusMonths(15);
+
+        int cnt = 0;
+
+        if(ad.Crtpos.length() > 0) {
+            html += getHtmlElem(sdf.format(ad.Crtdtesign), ad.Crtpsndessign, ad.Crtpos, sdf.format(psnmst.getLstchgdte()), sdf.format(convertToDateViaInstant(ld1)), ad.Brndes);
+            cnt++;
+        }else if(ad.Crtpsnsign.contains("<REJECT>") && ad.getCrtpsndessign().length()>0) {
+            html += getHtmlElemReject(ad.Rejectmsg, ad.getSname() + " " + ad.getFname() + " " + ad.getParname());
+            cnt++;
         }
+
+        if(ad.Agrpos.length() > 0) {
+            html += getHtmlElem(sdf.format(ad.Agrdtesign), ad.Agrpsndessign, ad.Agrpos, sdf.format(psnmst.getLstchgdte()), sdf.format(convertToDateViaInstant(ld1)), ad.Brndes);
+            cnt++;
+        }else if(ad.Agrpsnsign.contains("<REJECT>") && ad.getAgrpsndessign().length()>0) {
+            html += getHtmlElemReject(ad.Rejectmsg, ad.getSname() + " " + ad.getFname() + " " + ad.getParname());
+            cnt++;
+        }
+
+        if(ad.Apppos.length() > 0) {
+            html += getHtmlElem(sdf.format(ad.Appdtesign), ad.Apppsndessign, ad.Apppos, sdf.format(psnmst.getLstchgdte()), sdf.format(convertToDateViaInstant(ld1)), ad.Brndes);
+            cnt++;
+        }else if(ad.Apppsnsign.contains("<REJECT>") && ad.getApppsndessign().length()>0) {
+            html += getHtmlElemReject(ad.Rejectmsg, ad.getSname() + " " + ad.getFname() + " " + ad.getParname());
+            cnt++;
+        }
+
+        if(ad.Exepos.length() > 0) {
+            html += getHtmlElem(sdf.format(ad.Exedtesign), ad.Exepsndessign, ad.Exepos, sdf.format(psnmst.getLstchgdte()), sdf.format(convertToDateViaInstant(ld1)), ad.Brndes);
+            cnt++;
+        }else if(ad.Exepsnsign.contains("<REJECT>") && ad.getExepsndessign().length()>0) {
+            html += getHtmlElemReject(ad.Rejectmsg, ad.getSname() + " " + ad.getFname() + " " + ad.getParname());
+            cnt++;
+        }
+
+
+        html += "</html>";
+        if(cnt>0)
+            docx = setImgDocx(docx, "ХЭЦПХ", html, cnt);
+
 
         InputStream inputStream = new ByteArrayInputStream(docxToPdf(docx).toByteArray());
         int nRead;
@@ -1134,72 +1764,257 @@ public class MainController {
 
     @RequestMapping(value = { "/tmp_lst",  }, method = RequestMethod.GET)
     public String tmpLst(Model model) {
-        List<Tcpatmst_> tl = getTcpatmstLst(msSqlUrl);
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        model.addAttribute("user", p.getDes());
 
-        model.addAttribute("tmpList", tl);
+        if(getPsnLogin(msSqlUrl).equals(MASTER_PSN) || getPsnLogin(msSqlUrl).equals(MASTER_DEP_PERSONS_PSN))
+            model.addAttribute("tmpList", getTcpatmstLst(msSqlUrl));
+        else
+            model.addAttribute("tmpList", getTcpatmstLstWO(msSqlUrl));
+
 
         return "tmp_lst";
     }
 
-    @RequestMapping(value = { "/", "/doc_lst" }, method = RequestMethod.GET)
-    public String docLst(Model model) {
-//        try {
-//            DataInputStream pdf = new DataInputStream(new FileInputStream("D:\\1.docx"));
-//            wrFile(msSqlUrl, 1, pdf);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//        byte[] docx = getDocx(msSqlUrl,1);
-//
-//        try {
-//            FileOutputStream fos = new FileOutputStream("D:\\2.docx");
-//            fos.write(docx);
-//            fos.flush();
-//            fos.close();
-//        }catch (Exception e){
-//            e.printStackTrace();
-//        }
+    @RequestMapping(value = { "/sms_request_lst",  }, method = RequestMethod.GET)
+    @ResponseBody
+    public String smsRequestLst(@RequestParam String tcpoalst) throws Exception {
+        String[] sl = tcpoalst.split(";");
+        String code = RandomStringUtils.random(4, false, true);
+        String text = "Ваш СМС код для "+sl.length+" - "+code;
 
-        List<Templeate> t1 = unionMapper.getTmpLst();
+        for (String s:sl) {
+            unionMapper.updateTcpoahdrCode(code, Integer.parseInt(s));
+        }
+
+        URL url = new URL("https://gate.smsaero.ru/v2/sms/send?number=79262314800&text="+text+"&sign=SMS Aero");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        String auth = "kkorneev328@gmail.com:XtE6Ruawv0wQBiwpFCfqHXu52Eor";
+        byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+        String authHeaderValue = "Basic " + new String(encodedAuth);
+        connection.setRequestProperty("Authorization", authHeaderValue);
+        connection.setRequestProperty("accept", "application/json");
+
+        InputStream responseStream = connection.getInputStream();
+        System.out.println(responseStream.readAllBytes().toString());
+
+        return "";
+    }
+
+    @RequestMapping(value = { "/sms_request_one",  }, method = RequestMethod.GET)
+    @ResponseBody
+    public String smsRequest(@RequestParam int tcpoa) throws Exception {
+        String code = RandomStringUtils.random(4, false, true);
+        Tcpoahdr t = unionMapper.getTcpoahdrElem(tcpoa);
+        String text = "Ваш СМС код для документа №"+tcpoa+" от "+t.getActdte()+" - "+code;
+
+        unionMapper.updateTcpoahdrCode(code, tcpoa);
+
+        URL url = new URL("https://gate.smsaero.ru/v2/sms/send?number=79262314800&text="+text+"&sign=SMS Aero");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        String auth = "kkorneev328@gmail.com:XtE6Ruawv0wQBiwpFCfqHXu52Eor";
+        byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+        String authHeaderValue = "Basic " + new String(encodedAuth);
+        connection.setRequestProperty("Authorization", authHeaderValue);
+        connection.setRequestProperty("accept", "application/json");
+
+        InputStream responseStream = connection.getInputStream();
+        System.out.println(responseStream.readAllBytes().toString());
+
+        return "";
+    }
+
+
+    @RequestMapping(value = { "/", "/doc_lst" }, method = RequestMethod.GET)
+    public String docLst(Model model) throws Exception {
+        Psnmst p = unionMapper.getPsnmst(getPsnLogin(msSqlUrl));
+        Psnbrn psnbrn = unionMapper.getPsnbrn(p.getPsn());
+        model.addAttribute("user", p.getDes());
+        model.addAttribute("sms", psnbrn.getAuthorisation().equals("1"));
         List<Dep> d1 = unionMapper.getDepLst();
         List<Names> n1 = unionMapper.getFIOLst();
+        List<Names> n2 = new ArrayList<>();
+        model.addAttribute("psn", getPsnLogin(msSqlUrl));
+
+        for (Names n:n1) {
+            boolean founded = false;
+            for (Names nn:n2) {
+                if(n.value.equals(nn.value)) {
+                    founded = true;
+                    break;
+                }
+            }
+            if(!founded)
+                n2.add(n);
+        }
+
 
 //        model.addAttribute("tcpoa", getTcpoaLogin(msSqlUrl));
         model.addAttribute("deps", d1);
-        model.addAttribute("FIOs", n1);
-        model.addAttribute("template", t1);
+        model.addAttribute("FIOs", n2);
+        if(getPsnLogin(msSqlUrl).equals(MASTER_PSN) || getPsnLogin(msSqlUrl).equals(MASTER_DEP_PERSONS_PSN))
+            model.addAttribute("template",unionMapper.getTmpLst());
+        else
+            model.addAttribute("template",unionMapper.getTmpLstWO());
 
         return "doc_lst";
     }
 
     @RequestMapping(value = { "/add_tmp_post" }, method = RequestMethod.POST)
-    public String addTmp(@RequestParam String entby, @RequestParam int tcpa, @RequestParam String des, @RequestParam int crt, @RequestParam int app, @RequestParam int agr, @RequestParam int exe, @RequestParam int lifetime, @RequestParam int savetime, @RequestParam MultipartFile fileupload) {
+    public String addTmp(@RequestParam String entby, @RequestParam int tcpa, @RequestParam String des, @RequestParam int crt, @RequestParam int app, @RequestParam int agr, @RequestParam int exe, @RequestParam int lifetime, @RequestParam int savetime, @RequestParam MultipartFile fileupload, @RequestParam String comment, @RequestParam int newtmp, @RequestParam boolean multisign) {
         if(fileupload.getOriginalFilename().contains(".docx"))
-            addTcpatmst(msSqlUrl, entby, tcpa,des,crt,app,agr,exe,lifetime,savetime,fileupload);
+            addTcpatmst(msSqlUrl, entby, tcpa,des,crt,app,agr,exe,lifetime,savetime,fileupload, comment, newtmp, multisign);
         else
-            addTcpatmst(msSqlUrl, entby, tcpa,des,crt,app,agr,exe,lifetime,savetime,fileupload);
+            addTcpatmst(msSqlUrl, entby, tcpa,des,crt,app,agr,exe,lifetime,savetime, comment, newtmp, multisign);
 
         return "redirect:/tmp_lst";
     }
 
-    @RequestMapping(value = { "/add_doc_db" }, method = RequestMethod.POST)
-    public String addDocDb(@RequestParam int tmp, @RequestParam String date) throws ParseException {
-        String psn = getTcpoaLogin(msSqlUrl);
+    int addDbDoc(int tmp, String date) throws ParseException {
+        String psn = getPsnLogin(msSqlUrl);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         int tcpoa = unionMapper.getMaxTcpoa() + 1;
         String psndes = unionMapper.getPsndes(psn);
         String tab = getTabnum(msSqlUrl, psn);
 
-        unionMapper.insertTcpoahdr(tcpoa, tmp, sdf.parse(date), new Date(), psn, psndes, tab, psndes);
+
+        TcpatmstNF tcpatmst = unionMapper.getTcpatmstElem(tmp);
+
+        String psnCrt = "";
+        String psndesCrt = "";
+        String psnAgr = "";
+        String psndesAgr = "";
+        String psnApp = "";
+        String psndesApp = "";
+        String psnExe = "";
+        String psndesExe = "";
 
 
-        return "redirect:/edit_doc?tcpoa="+tcpoa;
+        String cscdes = "";
+        try {
+            cscdes = unionMapper.getCscdes(getPsnLogin(msSqlUrl));
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        if(cscdes == null)
+            cscdes = "не найден";
+
+        String cscpsn = "";
+        try {
+            cscpsn = unionMapper.getCscpsn(getPsnLogin(msSqlUrl));
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        if(cscpsn == null)
+            cscpsn = "не найден";
+
+
+        if(!tcpatmst.getCrtdoctyp().equals("0")){
+            if(tcpatmst.getCrtdoctyp().equals("1")) {
+                psnCrt = MASTER_PSN;
+                psndesCrt = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getCrtdoctyp().equals("3")){
+                psnCrt = cscpsn;
+                psndesCrt = cscdes;
+            }else if(tcpatmst.getCrtdoctyp().equals("4")) {
+                psnCrt = psn;
+                psndesCrt = psndes;
+            }else if(tcpatmst.getCrtdoctyp().equals("21")){
+                psnCrt = MASTER_DEP_PERSONS_PSN;
+                psndesCrt = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnCrt="<NNV>";
+        }else if(!tcpatmst.getAgrdoctyp().equals("0")){
+            if(tcpatmst.getAgrdoctyp().equals("1")) {
+                psnAgr = MASTER_PSN;
+                psndesAgr = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getAgrdoctyp().equals("3")){
+                psnAgr = cscpsn;
+                psndesAgr = cscdes;
+            }else if(tcpatmst.getAgrdoctyp().equals("4")) {
+                psnAgr = psn;
+                psndesAgr = psndes;
+            }else if(tcpatmst.getAgrdoctyp().equals("21")){
+                psnAgr = MASTER_DEP_PERSONS_PSN;
+                psndesAgr = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnAgr="<NNV>";
+        }else if(!tcpatmst.getAprdoctyp().equals("0")){
+            if(tcpatmst.getAprdoctyp().equals("1")) {
+                psnApp = MASTER_PSN;
+                psndesApp = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getAprdoctyp().equals("3")){
+                psnApp = cscpsn;
+                psndesApp = cscdes;
+            }else if(tcpatmst.getAprdoctyp().equals("4")) {
+                psnApp = psn;
+                psndesApp = psndes;
+            }else if(tcpatmst.getAprdoctyp().equals("21")){
+                psnApp = MASTER_DEP_PERSONS_PSN;
+                psndesApp = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnApp="<NNV>";
+        }else if(!tcpatmst.getExedoctyp().equals("0")){
+            if(tcpatmst.getExedoctyp().equals("1")) {
+                psnExe = MASTER_PSN;
+                psndesExe = unionMapper.getPsndes(MASTER_PSN);
+            }else if(tcpatmst.getExedoctyp().equals("3")){
+                psnExe = cscpsn;
+                psndesExe = cscdes;
+            }else if(tcpatmst.getExedoctyp().equals("4")) {
+                psnExe = psn;
+                psndesExe = psndes;
+            }else if(tcpatmst.getExedoctyp().equals("21")){
+                psnExe = MASTER_DEP_PERSONS_PSN;
+                psndesExe = unionMapper.getPsndes(MASTER_DEP_PERSONS_PSN);
+            }else
+                psnExe="<NNV>";
+        }
+
+        if(psnCrt == null)
+            psnCrt = "ошибка";
+        if(psndesCrt == null)
+            psndesCrt = "ошибка";
+        if(psnAgr == null)
+            psnAgr = "ошибка";
+        if(psndesAgr == null)
+            psndesAgr = "ошибка";
+        if(psnApp == null)
+            psnApp = "ошибка";
+        if(psndesApp == null)
+            psndesApp = "ошибка";
+        if(psnExe == null)
+            psnExe = "ошибка";
+        if(psndesExe == null)
+            psndesExe = "ошибка";
+
+        if(tcpatmst.getCrtdoctyp().equals("0"))
+            psnCrt = "<NNV>";
+
+        if(tcpatmst.getAgrdoctyp().equals("0"))
+            psnAgr = "<NNV>";
+
+        if(tcpatmst.getAprdoctyp().equals("0"))
+            psnApp = "<NNV>";
+
+        if(tcpatmst.getExedoctyp().equals("0"))
+            psnExe = "<NNV>";
+
+
+        unionMapper.insertTcpoahdr(tcpoa, tmp, sdf.parse(date), new Date(), psn, psndes, tab, psndes, psnCrt, psndesCrt, psnAgr, psndesAgr, psnApp, psndesApp, psnExe, psndesExe);
+
+
+        return tcpoa;
+    }
+
+    @RequestMapping(value = { "/add_doc_db" }, method = RequestMethod.POST)
+    public String addDocDb(@RequestParam int tmp, @RequestParam String date) throws ParseException {
+        return "redirect:/edit_doc?tcpoa="+addDbDoc(tmp, date);
     }
 
 
     @RequestMapping(value = { "/edit_doc_db" }, method = RequestMethod.POST)
-    public String editDocDb(@RequestParam int tcpoa, @RequestParam String date1, @RequestParam String date2, @RequestParam String qnt) {
+    public String editDocDb(@RequestParam int tcpoa, @RequestParam String date1, @RequestParam String date2, @RequestParam String qnt) throws ParseException {
         AddDoc ad = unionMapper.getDocElem(tcpoa);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -1210,8 +2025,24 @@ public class MainController {
         if(qnt.length() == 0)
             qnt = "0";
 
+
+        int controlflg = 2;
+        String controlmsg = "Прошел контроль";
+
+        if(date1.contains("1901-01-01") || date2.contains("1901-01-01") || qnt.contains("0")){
+            controlflg = ad.getСontrolflg();
+            controlmsg = ad.getСontrolmsg();
+        }else if(ad.getСontrolflg() == 0) {
+            long diffInMillies = Math.abs(sdf.parse(date1).getTime() - sdf.parse(date2).getTime());
+            long diff = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
+            if ((int) diff != Integer.parseInt(qnt)) {
+                controlflg = 1;
+                controlmsg = "Количество не соответствует заданным датам";
+            }
+        }
+
         try {
-            updateTcpoahdr(msSqlUrl, tcpoa, date1, date2, Integer.parseInt(qnt));
+            updateTcpoahdr(msSqlUrl, tcpoa, date1, date2, Integer.parseInt(qnt), controlflg, controlmsg);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1220,11 +2051,11 @@ public class MainController {
     }
 
     @RequestMapping(value = { "/edit_tmp_post" }, method = RequestMethod.POST)
-    public String editTmp(@RequestParam int tcpa, @RequestParam String des, @RequestParam int crt, @RequestParam int app, @RequestParam int agr, @RequestParam int exe, @RequestParam int lifetime, @RequestParam int savetime, @RequestParam MultipartFile fileupload) {
+    public String editTmp(@RequestParam int tcpa, @RequestParam String des, @RequestParam int crt, @RequestParam int app, @RequestParam int agr, @RequestParam int exe, @RequestParam int lifetime, @RequestParam int savetime, @RequestParam MultipartFile fileupload, @RequestParam String comment, @RequestParam int newtmp, @RequestParam boolean multisign) {
         if(fileupload.getOriginalFilename().contains(".docx"))
-            editDevice(msSqlUrl,tcpa,des,crt,app,agr,exe,lifetime,savetime,fileupload);
+            editDevice(msSqlUrl,tcpa,des,crt,app,agr,exe,lifetime,savetime,fileupload, comment, newtmp, multisign);
         else
-            editDevice(msSqlUrl,tcpa,des,crt,app,agr,exe,lifetime,savetime);
+            editDevice(msSqlUrl,tcpa,des,crt,app,agr,exe,lifetime,savetime, comment, newtmp, multisign);
 
         return "redirect:/tmp_lst";
     }
@@ -1233,22 +2064,23 @@ public class MainController {
     @ResponseBody
     public String routsGet(@RequestParam int pageMrk, HttpServletRequest request, Model model) throws ParseException {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-//        Calendar csd_ = Calendar.getInstance();
-//        csd_.setTime(new Date());
-//        csd_.add(Calendar.DATE, -90);
-//        String SD = sdf.format(csd_.getTime());
-//        Calendar ced_ = Calendar.getInstance();
-//        ced_.setTime(new Date());
-//        ced_.add(Calendar.DATE, 0);
-//        String ED = sdf.format(ced_.getTime());
 
-        String SD = "1970-01-01";
-        String ED = "2099-01-01";
+        Calendar csd_ = Calendar.getInstance();
+        csd_.setTime(new Date());
+        csd_.add(Calendar.DATE, -90);
+        String SD = sdf.format(csd_.getTime());
 
+        Calendar ced_ = Calendar.getInstance();
+        ced_.setTime(new Date());
+        ced_.add(Calendar.DATE, 30);
+        String ED = sdf.format(ced_.getTime());
+
+
+        int control = -1;
         String template = "";
         String dep = "";
         String FIO = "";
-        String sort = "b.Tcpoa";
+        String sort = "b.ActdteDESC";
         String sDate = SD;
         String eDate = ED;
         int pageRowCount = 20;
@@ -1271,14 +2103,17 @@ public class MainController {
                 pageRowCount = Integer.parseInt(value);
             } else if(name.equals("sort")) {
                 sort = value;
-            }
+            } else if(name.equals("control")) {
+                control = Integer.parseInt(value);
+        }
             System.out.println(cookie.getName() + " : " + cookie.getValue());
         }
 
+        String p = getPsnLogin(msSqlUrl);
 
-//        List<DocElem> docElems = unionMapper.getDocsLst(sort.replace("DESC", " DESC"), sdf.parse(sDate), sdf.parse(eDate), pageRowCount*pageMrk, pageRowCount);
-        List<DocElem> docElems = getDocElem(msSqlUrl, sort.replace("DESC", " DESC"), sdf.parse(sDate), sdf.parse(eDate), pageRowCount*pageMrk, pageRowCount, dep, template, FIO);
-        Rest rest = new Rest(docElems, sort.contains("DESC")?"desc":"asc", sort, pageRowCount, unionMapper.getDocsCnt(sdf.parse(sDate), sdf.parse(eDate)), sDate, eDate, template, FIO, dep);
+        List<DocElem> docElems = getDocElemPage(msSqlUrl, sort.replace("DESC", " DESC"), sdf.parse(sDate), sdf.parse(eDate), pageRowCount*pageMrk, pageRowCount, dep, template, FIO, control, (p.equals(MASTER_PSN) || p.equals(MASTER_DEP_PERSONS_PSN)), p);
+
+        Rest rest = new Rest(docElems, sort.contains("DESC")?"desc":"asc", sort, pageRowCount, getDocElem(msSqlUrl, sdf.parse(sDate), sdf.parse(eDate), dep, template, FIO, control, (p.equals(MASTER_PSN) || p.equals(MASTER_DEP_PERSONS_PSN)), p).size(), sDate, eDate, template, FIO, dep, control);
         return new Gson().toJson(rest);
     }
 
@@ -1293,6 +2128,7 @@ public class MainController {
         private String tmp;
         private String fio;
         private String dep;
+        private int control;
 
         public List<DocElem> getLst() {
             return lst;
@@ -1374,7 +2210,15 @@ public class MainController {
             this.dep = dep;
         }
 
-        public Rest(List<DocElem> lst, String className, String sort, int pageRowCount, int maxPageCount, String sDate, String eDate, String tmp, String fio, String dep) {
+        public int getControl() {
+            return control;
+        }
+
+        public void setControl(int control) {
+            this.control = control;
+        }
+
+        public Rest(List<DocElem> lst, String className, String sort, int pageRowCount, int maxPageCount, String sDate, String eDate, String tmp, String fio, String dep, int control) {
             this.lst = lst;
             this.className = className;
             this.sort = sort;
@@ -1385,6 +2229,282 @@ public class MainController {
             this.tmp = tmp;
             this.fio = fio;
             this.dep = dep;
+            this.control = control;
         }
+    }
+
+    public class DocExcel {
+        private int Tcpoa;          //N
+        private String Actdte;      //Дата
+        private String Dep;         //Шаблон
+        private String Template;    //Отдел
+
+
+        private String Crtpsndessign;  //Автор
+        private String Crtdtesign;
+
+        private String Agrpsndessign;  //Утвержден
+        private String Agrdtesign;
+
+        private String Apppsndessign;  //Согласованно
+        private String Appdtesign;
+
+        private String Exepsndessign;  //Исполнен
+        private String Exedtesign;
+
+        public DocExcel(int tcpoa, String actdte, String dep, String template, String crtpsndessign, String crtdtesign, String agrpsndessign, String agrdtesign, String apppsndessign, String appdtesign, String exepsndessign, String exedtesign) {
+            Tcpoa = tcpoa;
+            Actdte = actdte;
+            Dep = dep;
+            Template = template;
+            Crtpsndessign = crtpsndessign;
+            Crtdtesign = crtdtesign.contains("01.01.1901")?"":crtdtesign;
+            Agrpsndessign = agrpsndessign;
+            Agrdtesign = agrdtesign.contains("01.01.1901")?"":agrdtesign;
+            Apppsndessign = apppsndessign;
+            Appdtesign = appdtesign.contains("01.01.1901")?"":appdtesign;
+            Exepsndessign = exepsndessign;
+            Exedtesign = exedtesign.contains("01.01.1901")?"":exedtesign;
+        }
+
+        public int getTcpoa() {
+            return Tcpoa;
+        }
+
+        public void setTcpoa(int tcpoa) {
+            Tcpoa = tcpoa;
+        }
+
+        public String getActdte() {
+            return Actdte;
+        }
+
+        public void setActdte(String actdte) {
+            Actdte = actdte;
+        }
+
+        public String getDep() {
+            return Dep;
+        }
+
+        public void setDep(String dep) {
+            Dep = dep;
+        }
+
+        public String getTemplate() {
+            return Template;
+        }
+
+        public void setTemplate(String template) {
+            Template = template;
+        }
+
+        public String getCrtpsndessign() {
+            return Crtpsndessign;
+        }
+
+        public void setCrtpsndessign(String crtpsndessign) {
+            Crtpsndessign = crtpsndessign;
+        }
+
+        public String getCrtdtesign() {
+            return Crtdtesign.contains("01.01.1901")?"":Crtdtesign;
+        }
+
+        public void setCrtdtesign(String crtdtesign) {
+            Crtdtesign = crtdtesign;
+        }
+
+        public String getAgrpsndessign() {
+            return Agrpsndessign;
+        }
+
+        public void setAgrpsndessign(String agrpsndessign) {
+            Agrpsndessign = agrpsndessign;
+        }
+
+        public String getAgrdtesign() {
+            return Agrdtesign.contains("01.01.1901")?"":Agrdtesign;
+        }
+
+        public void setAgrdtesign(String agrdtesign) {
+            Agrdtesign = agrdtesign;
+        }
+
+        public String getApppsndessign() {
+            return Apppsndessign;
+        }
+
+        public void setApppsndessign(String apppsndessign) {
+            Apppsndessign = apppsndessign;
+        }
+
+        public String getAppdtesign() {
+            return Appdtesign.contains("01.01.1901")?"":Appdtesign;
+        }
+
+        public void setAppdtesign(String appdtesign) {
+            Appdtesign = appdtesign;
+        }
+
+        public String getExepsndessign() {
+            return Exepsndessign;
+        }
+
+        public void setExepsndessign(String exepsndessign) {
+            Exepsndessign = exepsndessign;
+        }
+
+        public String getExedtesign() {
+            return Exedtesign.contains("01.01.1901")?"":Exedtesign;
+        }
+
+        public void setExedtesign(String exedtesign) {
+            Exedtesign = exedtesign;
+        }
+    }
+
+    private void writeBook(DocExcel doc, Row row) {
+        Cell cell = row.createCell(0);
+        if(doc.Tcpoa != -9988)
+            cell.setCellValue(doc.Tcpoa);
+        else
+            cell.setCellValue("N");
+
+        cell = row.createCell(1);
+        cell.setCellValue(doc.Actdte);
+
+        cell = row.createCell(2);
+        cell.setCellValue(doc.Template);
+
+        cell = row.createCell(3);
+        cell.setCellValue(doc.Dep);
+
+        cell = row.createCell(4);
+        cell.setCellValue(doc.Crtpsndessign);
+
+        cell = row.createCell(5);
+        cell.setCellValue(doc.Crtdtesign);
+
+        cell = row.createCell(6);
+        cell.setCellValue(doc.Agrpsndessign);
+
+        cell = row.createCell(7);
+        cell.setCellValue(doc.Agrdtesign);
+
+        cell = row.createCell(8);
+        cell.setCellValue(doc.Apppsndessign);
+
+        cell = row.createCell(9);
+        cell.setCellValue(doc.Appdtesign);
+
+        cell = row.createCell(10);
+        cell.setCellValue(doc.Exepsndessign);
+
+        cell = row.createCell(11);
+        cell.setCellValue(doc.Exedtesign);
+    }
+
+    public ByteArrayOutputStream writeExcel(List<DocExcel> listBook) throws Exception {
+        Workbook workbook = new HSSFWorkbook();
+        Sheet sheet = workbook.createSheet();
+
+        int rowCount = 0;
+        Row row1 = sheet.createRow(0);
+        writeBook(new DocExcel(-9988, "Дата", "Отдел", "Шаблон", "Автор", "Подпись", "Согласовано", "Подпись", "Утвержден", "Подпись", "Исполнен", "Подпись"), row1);
+        for (DocExcel doc : listBook) {
+            Row row = sheet.createRow(++rowCount);
+            writeBook(doc, row);
+        }
+
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            workbook.write(outputStream);
+            return outputStream;
+        }
+    }
+
+    @RequestMapping(value = { "/xlsx" }, method = RequestMethod.GET)
+    @ResponseBody
+    public void getExcel(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+
+        String SD = "1970-01-01";
+        String ED = "2099-01-01";
+
+        int control = -1;
+        String template = "";
+        String dep = "";
+        String FIO = "";
+        String sort = "b.ActdteDESC";
+        String sDate = SD;
+        String eDate = ED;
+        int pageRowCount = 20;
+
+        Cookie[] cookies = request.getCookies();
+        for(Cookie cookie : cookies) {
+            String name = cookie.getName();
+            String value = cookie.getValue();
+            if(name.equals("tmp")) {
+                template = value;
+            } else if(name.equals("dep")) {
+                dep = value;
+            } else if(name.equals("fio")) {
+                FIO = value;
+            } else if(name.equals("startTime")) {
+                sDate = value;
+            } else if(name.equals("endTime")) {
+                eDate = value;
+            } else if(name.equals("control")) {
+                control = Integer.parseInt(value);
+            }
+            System.out.println(cookie.getName() + " : " + cookie.getValue());
+        }
+
+        String p = getPsnLogin(msSqlUrl);
+
+        List<DocElem> docElems = getDocElem(msSqlUrl, sdf1.parse(sDate), sdf1.parse(eDate), dep, template, FIO, control, (p.equals(MASTER_PSN) || p.equals(MASTER_DEP_PERSONS_PSN)), p);
+        List<DocExcel> docExcelList = new ArrayList<>();
+        for (DocElem de:docElems)
+            docExcelList.add(new DocExcel(de.getTcpoa(), sdf.format(de.getActdte()), de.getDep(), de.getTemplate(), de.getCrtpsndessign(), sdf.format(de.getCrtdtesign()), de.getAgrpsndessign(), sdf.format(de.getAgrdtesign()), de.getApppsndessign(), sdf.format(de.getAppdtesign()), de.getExepsndessign(), sdf.format(de.getExedtesign())));
+
+
+
+        byte[] excel = writeExcel(docExcelList).toByteArray();
+        String fileName = "docList.xls";
+        response.setContentType("application/vnd.ms-excel");
+        response.setHeader("Content-Disposition", "attachment;filename=" + fileName);
+
+        InputStream inputStream = new ByteArrayInputStream(excel);
+        int nRead;
+        while ((nRead = inputStream.read()) != -1) {
+            response.getWriter().write(nRead);
+        }
+    }
+    @RequestMapping(value = { "/send_mile" }, method = RequestMethod.GET)
+    public String sendMile(@RequestParam String psn, @RequestParam int tcpoa) {
+        Psnmst p = unionMapper.getPsnmst(psn);
+//        Tcpoahdr tcpoahdr = unionMapper.getTcpoahdrElem(tcpoa);
+
+        String[] sl = new String[]{p.getEmail(), "m1607@yandex.ru", "kkorneev328@gmail.com"};
+        //String[] sl = new String[]{"kkorneev331@gmail.com", "kkorneev328@gmail.com"};
+        try {
+            setMailDetailsForSend("Уведомление о подписании документа №"+tcpoa, "<html><b>Вы можете подписать документ №"+tcpoa+".</b><br><b>Для этого перейдите по <a href=\"https://hrdoc.ining.ru/edit_doc?tcpoa="+tcpoa+"\">ссылке</a></b></html>", sl, "noreply@ining.ru");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/";
+    }
+
+    @Autowired
+    private JavaMailSender mailSender;
+    private void setMailDetailsForSend(String title, String text, String[] email, String from) throws Exception {
+        final MimeMessage mail = mailSender.createMimeMessage();
+        final MimeMessageHelper helper = new MimeMessageHelper(mail, true);
+        helper.setTo(email);
+        helper.setFrom(from);
+        helper.setSubject(title);
+        helper.setText("text/html", text);
+        mailSender.send(mail);
     }
 }

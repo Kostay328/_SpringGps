@@ -43,84 +43,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class AutoGpsLib {
-    private static final int WIDTH = 1024;
-    private static final String IMAGE_FORMAT = "png";
 
     private static DecimalFormat df1 = new DecimalFormat("#.#");
 
-    public static class MillageDuration {
-        private String res;
-        private String no;
-        private String mileageKm;
-        private double mileage;
-        private Long duration;
-        private Long start;
-        private String color;
-
-
-        public MillageDuration(double mileage, long start, long end, String color, String no) {
-            this.mileage = mileage;
-            this.mileageKm = df1.format(mileage/1000);
-            this.start = start;
-            this.duration = (end - start) / (1000 * 60);
-            this.color = color;
-            this.no = no;
-            this.res = mileageKm + "; " + (duration/(1000*60));
-        }
-
-        public String getRes() { return res; }
-
-        public String getNo() {
-            return no;
-        }
-
-        public String getColor() {
-            return color;
-        }
-
-        public double getMileage() {
-            return mileage;
-        }
-
-        public String getMileageKm() {
-            return mileageKm;
-        }
-
-        public long getDuration() {
-            return duration;
-        }
-
-        public long getStart() {
-            return start;
-        }
-
-        @Override
-        public String toString() {
-            return super.toString();
-        }
-    }
-
-    public static class Row {
-        private final String no;
-        private List<MillageDuration> lst = new ArrayList<>();
-
-        public Row(String no) {
-            this.no = no;
-        }
-
-        public String getNo() {
-            return no;
-        }
-
-        public List<MillageDuration> getLst() {
-            return lst;
-        }
-
-        public String getSumMileage() {
-            double sum = lst.stream().map(x -> x.mileage).reduce(0.0, (x, y) -> x + y);
-            return df1.format(sum/1000);
-        }
-    }
 //CURRENT DATE
     private static class CDate {
         private String fdate;
@@ -179,15 +104,15 @@ public class AutoGpsLib {
         ps.executeUpdate();
     }
 
-    public static void updateTcpoahdr(String connString, int tcpoa, String sdte, String edte, int qnt) throws Exception {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
+    public static void updateTcpoahdr(String connString, int tcpoa, String sdte, String edte, int qnt, int controlflg, String controlmsg) throws Exception {
         Connection dbConnection = DriverManager.getConnection(connString);
-        PreparedStatement ps = dbConnection.prepareStatement("UPDATE Tcpoahdr SET Strdte = ?, Stpdte = ?, Qnt = ? WHERE Tcpoa = " + tcpoa);
+        PreparedStatement ps = dbConnection.prepareStatement("UPDATE Tcpoahdr SET Strdte = ?, Stpdte = ?, Qnt = ?, Сontrolflg = ?, Сontrolmsg = ? WHERE Tcpoa = " + tcpoa);
 
         ps.setDate(1, (java.sql.Date.valueOf(sdte)));
         ps.setDate(2, (java.sql.Date.valueOf(edte)));
         ps.setInt(3, qnt);
+        ps.setInt(4, controlflg);
+        ps.setString(5, controlmsg);
 
         ps.executeUpdate();
     }
@@ -201,16 +126,6 @@ public class AutoGpsLib {
         return cDate;
     }
 
-    public TreeMap<String, Row> getRun() throws IOException {
-        TreeMap<String, Row> result = new TreeMap<>();
-        Row row = result.get("key");
-        return result;
-    }
-
-    public static void main(String[] args) {
-        List<Row> report = new ArrayList<>();
-
-    }
 
     public static LocalDate convertDate(Date dateToConvert) {
         return new java.sql.Timestamp(dateToConvert.getTime()).toLocalDateTime().toLocalDate();
@@ -223,12 +138,12 @@ public class AutoGpsLib {
         return dateStringsLst;
     }
 
-    public static boolean editDevice(String url, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload) {
+    public static boolean editDevice(String url, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload, String Comment, int Newtmp, boolean Multisign) {
         try {
             Connection dbConnection = DriverManager.getConnection(url);
             PreparedStatement ps = dbConnection.prepareStatement(
                     "UPDATE Tcpatmst " +
-                            "SET des = ?, crtdoctyp = ?, aprdoctyp = ?, agrdoctyp = ?, exedoctyp = ?, lifetime = ?, savetime = ?, docx = ? " +
+                            "SET des = ?, crtdoctyp = ?, aprdoctyp = ?, agrdoctyp = ?, exedoctyp = ?, lifetime = ?, savetime = ?, docx = ?, Comment = ?, Newtmp = ?, Multisign = ? " +
                             "WHERE tcpat = " + tcpa);
             ps.setString(1, des);
             ps.setInt(2, crt);
@@ -238,6 +153,9 @@ public class AutoGpsLib {
             ps.setInt(6, lifetime);
             ps.setInt(7, savetime);
             ps.setBytes(8, fileupload.getBytes());
+            ps.setString(9, Comment);
+            ps.setInt(10, Newtmp);
+            ps.setBoolean(11, Multisign);
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
@@ -245,12 +163,31 @@ public class AutoGpsLib {
     return true;
     }
 
-    public static boolean editDevice(String url, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime) {
+    public static boolean setDocxTcpoahdr(String url, int tcpoa, XWPFDocument doc) {
+        try {
+            Connection dbConnection = DriverManager.getConnection(url);
+            PreparedStatement ps = dbConnection.prepareStatement(
+                    "UPDATE Tcpoahdr " +
+                            "SET Docx = ? " +
+                            "WHERE tcpoa = " + tcpoa);
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            doc.write(out);
+
+            ps.setBytes(1, out.toByteArray());
+            ps.executeUpdate();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return true;
+    }
+
+    public static boolean editDevice(String url, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, String Comment, int Newtmp, boolean Multisign) {
         try {
             Connection dbConnection = DriverManager.getConnection(url);
             PreparedStatement ps = dbConnection.prepareStatement(
                     "UPDATE Tcpatmst " +
-                            "SET des = ?, crtdoctyp = ?, aprdoctyp = ?, agrdoctyp = ?, exedoctyp = ?, lifetime = ?, savetime = ? " +
+                            "SET des = ?, crtdoctyp = ?, aprdoctyp = ?, agrdoctyp = ?, exedoctyp = ?, lifetime = ?, savetime = ?, Comment = ?, Newtmp = ?, Multisign = ? " +
                             "WHERE tcpat = " + tcpa);
             ps.setString(1, des);
             ps.setInt(2, crt);
@@ -259,6 +196,9 @@ public class AutoGpsLib {
             ps.setInt(5, exe);
             ps.setInt(6, lifetime);
             ps.setInt(7, savetime);
+            ps.setString(8, Comment);
+            ps.setInt(9, Newtmp);
+            ps.setBoolean(10, Multisign);
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
@@ -267,13 +207,13 @@ public class AutoGpsLib {
     }
 
 
-    public static boolean addTcpatmst(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload) {
+    public static boolean addTcpatmst(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, MultipartFile fileupload, String Comment, int Newtmp, boolean Multisign) {
         try {
             Connection dbConnection = DriverManager.getConnection(url);
             PreparedStatement ps = dbConnection.prepareStatement(
                     "INSERT INTO Tcpatmst " +
-                            "(entby, tcpat, des, crtdoctyp, aprdoctyp, agrdoctyp, exedoctyp, lifetime, savetime, docx, entdte) " +
-                            "VALUES (?,?,?,?,?,?,?,?,?,?,?);");
+                            "(entby, tcpat, des, crtdoctyp, aprdoctyp, agrdoctyp, exedoctyp, lifetime, savetime, docx, entdte, Comment, Newtmp, Multisign) " +
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);");
             ps.setString(1, entby);
             ps.setInt(2, tcpa);
             ps.setString(3, des);
@@ -285,6 +225,9 @@ public class AutoGpsLib {
             ps.setInt(9, savetime);
             ps.setBytes(10, fileupload.getBytes());
             ps.setDate(11, new java.sql.Date(new java.util.Date().getTime()));
+            ps.setString(12, Comment);
+            ps.setInt(13, Newtmp);
+            ps.setBoolean(14, Multisign);
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
@@ -311,7 +254,7 @@ public class AutoGpsLib {
         }
     }
 
-    public static XWPFDocument setImgDocx(XWPFDocument doc, String teg, String html) throws Exception {
+    public static XWPFDocument setImgDocx(XWPFDocument doc, String teg, String html, int cntPng) throws Exception {
         ByteArrayOutputStream os = convertHtmlToImage(html);
         InputStream is = new ByteArrayInputStream(os.toByteArray());
 
@@ -322,7 +265,7 @@ public class AutoGpsLib {
                     String text = r.getText(0);
                     if(text != null && text.contains(teg)) {
                         r.setText(r.text().replace(teg, ""), 0);
-                        r.addPicture(is, XWPFDocument.PICTURE_TYPE_JPEG, "imgFile", Units.toEMU(393), Units.toEMU(105));
+                        r.addPicture(is, XWPFDocument.PICTURE_TYPE_JPEG, "imgFile", Units.toEMU(263), Units.toEMU(75*cntPng));
                         break;
                     }
                 }
@@ -341,7 +284,7 @@ public class AutoGpsLib {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         ImageIO.write(bi, "PNG", os);
 
-        ImageIO.write(bi, "PNG", new File("C:/GPS/698589.png"));
+//        ImageIO.write(bi, "PNG", new File("C:/GPS/698589.png"));
 
         return os;
     }
@@ -411,13 +354,13 @@ public class AutoGpsLib {
         return res;
     }
 
-    public static boolean addTcpatmst(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime) {
+    public static boolean addTcpatmst(String url, String entby, int tcpa, String des, int crt, int app, int agr, int exe, int lifetime, int savetime, String Comment, int Newtmp, boolean Multisign) {
         try {
             Connection dbConnection = DriverManager.getConnection(url);
             PreparedStatement ps = dbConnection.prepareStatement(
                     "INSERT INTO Tcpatmst " +
-                            "(entby, tcpat, des, crtdoctyp, aprdoctyp, agrdoctyp, exedoctyp, lifetime, savetime, entdte) " +
-                            "VALUES (?,?,?,?,?,?,?,?,?,?);");
+                            "(entby, tcpat, des, crtdoctyp, aprdoctyp, agrdoctyp, exedoctyp, lifetime, savetime, entdte, Comment, Newtmp, Multisign) " +
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);");
             ps.setString(1, entby);
             ps.setInt(2, tcpa);
             ps.setString(3, des);
@@ -428,6 +371,9 @@ public class AutoGpsLib {
             ps.setInt(8, lifetime);
             ps.setInt(9, savetime);
             ps.setDate(10, new java.sql.Date(new java.util.Date().getTime()));
+            ps.setString(11, Comment);
+            ps.setInt(12, Newtmp);
+            ps.setBoolean(13, Multisign);
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
@@ -440,7 +386,7 @@ public class AutoGpsLib {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             Connection conn = DriverManager.getConnection(url);
-            String sql = "SELECT Tcpat, Des, Entby, Lstchgby, Entdte, Lstchgdte, Rcdsts, Crtdoctyp, Agrdoctyp, Aprdoctyp, Exedoctyp, Lifetime, Savetime, Docx FROM Tcpatmst WHERE Tcpat = " + Tcpat;
+            String sql = "SELECT Tcpat, Des, Entby, Lstchgby, Entdte, Lstchgdte, Rcdsts, Crtdoctyp, Agrdoctyp, Aprdoctyp, Exedoctyp, Lifetime, Savetime, Docx, Comment, Newtmp, Multisign FROM Tcpatmst WHERE Tcpat = " + Tcpat;
             ResultSet rs = conn.createStatement().executeQuery(sql);
 
 
@@ -459,6 +405,9 @@ public class AutoGpsLib {
             res.setLifetime(rs.getInt("Lifetime"));
             res.setSavetime(rs.getInt("Savetime"));
             res.setDocx(rs.getBytes("Docx"));
+            res.setComment(rs.getString("Comment"));
+            res.setNewtmp(rs.getInt("Newtmp"));
+            res.setMultisign(rs.getBoolean("Multisign"));
 
         } catch (Exception throwables) {
             throwables.printStackTrace();
@@ -467,6 +416,38 @@ public class AutoGpsLib {
         return res;
     }
 
+    public static List<MainController.Tcpatmst_> getTcpatmstLstWO(String url) {
+        List<MainController.Tcpatmst_> resLst = new ArrayList<>();
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            Connection conn = DriverManager.getConnection(url);
+            String sql = "SELECT Tcpat, Des, Entby, Lstchgby, Entdte, Lstchgdte, Rcdsts, Crtdoctyp, Agrdoctyp, Aprdoctyp, Exedoctyp, Lifetime, Savetime FROM Tcpatmst WHERE Crtdoctyp=4";
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+
+            while(rs.next()) {
+                MainController.Tcpatmst_ res = new MainController.Tcpatmst_();
+                res.setTcpat(rs.getInt("Tcpat"));
+                res.setDes(rs.getString("Des"));
+                res.setEntby(rs.getString("Entby"));
+                res.setLstchgby(rs.getString("Lstchgby"));
+                res.setEntdte(rs.getDate("Entdte"));
+                res.setLstchgdte(rs.getDate("Lstchgdte"));
+                res.setRcdsts(rs.getInt("Rcdsts"));
+                res.setCrtdoctyp(rs.getInt("Crtdoctyp"));
+                res.setAgrdoctyp(rs.getInt("Agrdoctyp"));
+                res.setAprdoctyp(rs.getInt("Aprdoctyp"));
+                res.setExedoctyp(rs.getInt("Exedoctyp"));
+                res.setLifetime(rs.getInt("Lifetime"));
+                res.setSavetime(rs.getInt("Savetime"));
+
+                resLst.add(res);
+            }
+        } catch (Exception throwables) {
+            throwables.printStackTrace();
+        }
+
+        return resLst;
+    }
 
     public static List<MainController.Tcpatmst_> getTcpatmstLst(String url) {
         List<MainController.Tcpatmst_> resLst = new ArrayList<>();
@@ -539,9 +520,14 @@ public class AutoGpsLib {
         return res;
     }
 
-    public static List<DocElem> getDocElem(String url, String order, Date startTime, Date endTime, int i1, int i2, String dep, String tmp, String fio) {
+    public static List<DocElem> getDocElem(String url, Date startTime, Date endTime, String dep, String tmp, String fio, int control, boolean psn, String p) {
+        String psnStr = " ";
+        if(!psn){
+            psnStr += "AND (b.Crtpsnsign = '"+p+"'OR b.Agrpsnsign = '"+p+"'OR b.Apppsnsign = '"+p+"'OR b.Exepsnsign = '"+p+"') ";
+        }
+
         List<DocElem> res = new ArrayList<>();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
         String filtr = " ";
         if(dep.length() > 0)
             filtr += " and d.Brn = " + dep.split("_")[0] + " and d.Cln = " + dep.split("_")[1];
@@ -549,16 +535,86 @@ public class AutoGpsLib {
             filtr += " and a.Tcpat = " + tmp;
         if(fio.length() > 0)
             filtr += " and b.Tcpoa = " + fio;
+        if(control != -1)
+            filtr += " and b.Сontrolflg = " + control;
 
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             Connection conn = DriverManager.getConnection(url);
-            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsndessign, b.Crtdtesign, b.Agrpsndessign, b.Agrdtesign, b.Apppsndessign, b.Appdtesign, b.Exepsndessign, b.Exedtesign, b.Entdte " +
+            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtpsndessign, b.Crtdtesign, b.Agrpsnsign, b.Agrpsndessign, b.Agrdtesign, b.Apppsnsign, b.Apppsndessign, b.Appdtesign, b.Exepsnsign, b.Exepsndessign, b.Exedtesign, b.Entdte, b.Сontrolflg, b.Сontrolmsg, a.Multisign " +
                     "from Tcpoahdr b " +
                     " left join Tcpatmst a on b.Tcpat = a.Tcpat " +
                     " left join Psnbrn c on b.Psn=c.Psn and b.Tabnum=c.Tabnum and c.Rcdsts < 9 " +
                     " left join Clnmst d on c.Cln=d.Cln and c.Ptnbrn=d.Brn " +
-                    "WHERE b.Actdte > '"+sdf.format(startTime)+"' AND b.Actdte < '"+sdf.format(endTime) +"'"+
+                    "WHERE b.Actdte > '"+sdf.format(startTime)+"' AND b.Actdte < '"+sdf.format(endTime) +"'"+psnStr+
+                    filtr;
+
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+
+
+            while (rs.next()) {
+                int Tcpoa = rs.getInt("Tcpoa");
+                Date Actdte = new java.util.Date(rs.getTimestamp("Actdte").getTime());
+                String Dep = rs.getString("Dep");
+                String Template = rs.getString("Template");
+                int Сontrolflg = rs.getInt("Сontrolflg");
+                String Сontrolmsg = rs.getString("Сontrolmsg");
+
+
+                String Apppsndessign = rs.getString("Apppsndessign");
+                String Agrpsndessign = rs.getString("Agrpsndessign");
+                String Crtpsndessign = rs.getString("Crtpsndessign");
+                String Exepsndessign = rs.getString("Exepsndessign");
+
+                String Apppsnsign = rs.getString("Apppsnsign");
+                String Agrpsnsign = rs.getString("Agrpsnsign");
+                String Crtpsnsign = rs.getString("Crtpsnsign");
+                String Exepsnsign = rs.getString("Exepsnsign");
+
+                Date Appdtesign = new java.util.Date(rs.getTimestamp("Appdtesign").getTime());
+                Date Agrdtesign = new java.util.Date(rs.getTimestamp("Agrdtesign").getTime());
+                Date Crtdtesign = new java.util.Date(rs.getTimestamp("Crtdtesign").getTime());
+                Date Exedtesign = new java.util.Date(rs.getTimestamp("Exedtesign").getTime());
+
+                boolean checkbox = rs.getBoolean("Multisign");
+
+
+                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtpsndessign, Crtdtesign, Agrpsnsign, Agrpsndessign, Agrdtesign, Apppsnsign, Apppsndessign, Appdtesign, Exepsnsign, Exepsndessign, Exedtesign, Сontrolflg, Сontrolmsg, checkbox));
+            }
+        } catch (Exception throwables) {
+            throwables.printStackTrace();
+        }
+
+        return res;
+    }
+
+    public static List<DocElem> getDocElemPage(String url, String order, Date startTime, Date endTime, int i1, int i2, String dep, String tmp, String fio, int control, boolean psn, String p) {
+        String psnStr = " ";
+        if(!psn){
+            psnStr += "AND (b.Crtpsnsign = '"+p+"'OR b.Agrpsnsign = '"+p+"'OR b.Apppsnsign = '"+p+"'OR b.Exepsnsign = '"+p+"') ";
+        }
+
+        List<DocElem> res = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+        String filtr = " ";
+        if(dep.length() > 0)
+            filtr += " and d.Brn = " + dep.split("_")[0] + " and d.Cln = " + dep.split("_")[1];
+        if(tmp.length() > 0)
+            filtr += " and a.Tcpat = " + tmp;
+        if(fio.length() > 0)
+            filtr += " and b.Tcpoa = " + fio;
+        if(control != -1)
+            filtr += " and b.Сontrolflg = " + control;
+
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            Connection conn = DriverManager.getConnection(url);
+            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtpsndessign, b.Crtdtesign, b.Agrpsnsign, b.Agrpsndessign, b.Agrdtesign, b.Apppsnsign, b.Apppsndessign, b.Appdtesign, b.Exepsnsign, b.Exepsndessign, b.Exedtesign, b.Entdte, b.Сontrolflg, b.Сontrolmsg, a.Multisign " +
+                    "from Tcpoahdr b " +
+                    " left join Tcpatmst a on b.Tcpat = a.Tcpat " +
+                    " left join Psnbrn c on b.Psn=c.Psn and b.Tabnum=c.Tabnum and c.Rcdsts < 9 " +
+                    " left join Clnmst d on c.Cln=d.Cln and c.Ptnbrn=d.Brn " +
+                    "WHERE b.Actdte > '"+sdf.format(startTime)+"' AND b.Actdte < '"+sdf.format(endTime) +"'"+psnStr+
                     filtr +
                     " ORDER BY " + order +
                     " offset " + i1 + " rows " +
@@ -571,6 +627,8 @@ public class AutoGpsLib {
                 Date Actdte = new java.util.Date(rs.getTimestamp("Actdte").getTime());
                 String Dep = rs.getString("Dep");
                 String Template = rs.getString("Template");
+                int Сontrolflg = rs.getInt("Сontrolflg");
+                String Сontrolmsg = rs.getString("Сontrolmsg");
 
 
                 String Apppsndessign = rs.getString("Apppsndessign");
@@ -578,14 +636,21 @@ public class AutoGpsLib {
                 String Crtpsndessign = rs.getString("Crtpsndessign");
                 String Exepsndessign = rs.getString("Exepsndessign");
 
+                String Apppsnsign = rs.getString("Apppsnsign");
+                String Agrpsnsign = rs.getString("Agrpsnsign");
+                String Crtpsnsign = rs.getString("Crtpsnsign");
+                String Exepsnsign = rs.getString("Exepsnsign");
+
                 Date Appdtesign = new java.util.Date(rs.getTimestamp("Appdtesign").getTime());
                 Date Agrdtesign = new java.util.Date(rs.getTimestamp("Agrdtesign").getTime());
                 Date Crtdtesign = new java.util.Date(rs.getTimestamp("Crtdtesign").getTime());
                 Date Exedtesign = new java.util.Date(rs.getTimestamp("Exedtesign").getTime());
 
+                boolean checkbox = rs.getBoolean("Multisign");
 
-                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsndessign, Crtdtesign, Agrpsndessign, Agrdtesign, Apppsndessign, Appdtesign, Exepsndessign, Exedtesign));
-            }
+
+                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtpsndessign, Crtdtesign, Agrpsnsign, Agrpsndessign, Agrdtesign, Apppsnsign, Apppsndessign, Appdtesign, Exepsnsign, Exepsndessign, Exedtesign, Сontrolflg, Сontrolmsg, checkbox));
+           }
         } catch (Exception throwables) {
             throwables.printStackTrace();
         }
@@ -593,7 +658,7 @@ public class AutoGpsLib {
         return res;
     }
 
-    public static String getTcpoaLogin(String url) {
+    public static String getPsnLogin(String url) {
         String res = "";
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String usr = auth.getName();
@@ -612,24 +677,6 @@ public class AutoGpsLib {
         return res;
     }
 
-    static Row fillEmptyLst(Date startTime, Date endTime, Row row, String no) throws ParseException {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy.MM.dd");
-        List<String> dateStringsLst = reqDateList(startTime, endTime, "yyyy.MM.dd");
-        for (String date : dateStringsLst) {
-            boolean dayFound = false;
-            for (MillageDuration mlD : row.lst) {
-                String nearestDay = formatter.format(new Date(mlD.start));
-                if (date.equals(nearestDay))
-                    dayFound = true;
-            }
-            if (!dayFound) {
-                MillageDuration MD = new MillageDuration(0.0, formatter.parse(date).getTime(), formatter.parse(date).getTime(), "color: Black; text-align: center", no);
-                row.lst.add(MD);
-            }
-        }
-
-        return row;
-    }
 
     static String getMillageColor(int speed) {
         if (speed >= 110)
@@ -658,37 +705,6 @@ public class AutoGpsLib {
 //            return "color: SlateBlue";
     }
 
-    public static TreeMap<String, Row> process(CarMapper carMapper, Date startTime, Date endTime) throws ParseException {
-        TreeMap<String, Row> res = new TreeMap<>();
-        System.out.println("Время начала - " + startTime + ", время конца - " + endTime);
-        List<CarMillage> millageList = carMapper.getMillage(startTime.getTime(), endTime.getTime());
-
-        Row row = null;
-        String key = "";
-        String lastNo = "";
-        for (CarMillage carMillage:millageList) {
-            key = carMillage.getName() + carMillage.getNo();
-            lastNo = carMillage.getNo();
-            if (row == null || !row.no.equals(carMillage.getNo())) {
-
-                if (row != null) {
-                    fillEmptyLst(startTime, endTime, row, carMillage.getNo());
-                    Collections.sort(row.lst, (a, b) -> a.start < b.start ? -1 : a.start == b.start ? 0 : 1);
-                    res.put(key, row);
-                }
-                row = new Row(carMillage.getNo());
-            }
-
-            MillageDuration millageDuration = new MillageDuration(carMillage.getMileage(), carMillage.getStartt(), carMillage.getEndt(), getMillageColor(carMillage.getMaxspeed()), carMillage.getNo());
-            row.lst.add(millageDuration);
-        }
-        if (row != null) {
-            fillEmptyLst(startTime, endTime, row, lastNo);
-            Collections.sort(row.lst, (a, b) -> a.start < b.start ? -1 : a.start == b.start ? 0 : 1);
-            res.put(key, row);
-        }
-        return res;
-    }
 
     public static List<DevInfo> getDevInfLst(DevMapper devMapper) {
         List<DevInfo> res = new ArrayList<DevInfo>();

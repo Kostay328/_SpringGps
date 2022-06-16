@@ -8,13 +8,16 @@
 
 <div style="margin-left: 52px" layout:fragment="title">
   Просмотр шаблонов
+    <nobr style='vertical-align: middle; text-align: center; margin-left:1000px;'>
+        <img style='vertical-align: middle; text-align: center;width: 15px;' src="/images/user.png">
+        <span th:text="${user}" style="vertical-align: middle; margin-left: 2px; font-size: 14px"></span>
+    </nobr>
 </div>
 
 
 
 
 <div layout:fragment="content">
-    <br>
     <button style="margin-left: 37px" class="btn btn-success" onclick="document.location='/add_tmp'">Добавить шаблон</button>
       <table class="table mt-3">
           <thead>
