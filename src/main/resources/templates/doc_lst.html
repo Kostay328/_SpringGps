@@ -43,7 +43,7 @@
         }
     </style>
 </head>
-<body onload="getRows()">
+<body onload="getRows(); getParams()">
 
 <div style="margin-left: 52px" layout:fragment="title">
   Список документов
@@ -90,6 +90,25 @@
         </div>
     </div>
     <script>
+        function getParams(){
+            if (window.location.href.indexOf('error') + 1) {
+                var params = window
+                    .location
+                    .search
+                    .replace('?','')
+                    .split('&')
+                    .reduce(
+                        function(p,e){
+                            var a = e.split('=');
+                            p[ decodeURIComponent(a[0])] = decodeURIComponent(a[1]);
+                            return p;
+                        },
+                        {}
+                    );
+                alert(params['error']);
+            }
+        }
+
         function sendSMS(){
             let xhr = new XMLHttpRequest();
 
@@ -149,7 +168,7 @@
         function check() {
             var nodes = document.getElementsByTagName("input");
             for (var i = 0; i < nodes.length; i++) {
-                if (nodes[i].type === "checkbox")
+                if (nodes[i].type === "checkbox" && nodes[i].id !== 'onSign')
                     nodes[i].checked = true;
             }
         }
@@ -233,7 +252,6 @@
     <css></css>
   <div class="container" style="margin: 20px">
       <nobr>
-          <button style="margin-bottom: 5px" type="submit" id="on_sign" class="btn btn-success">На подпись</button>
           <button style="margin-bottom: 5px; margin-right: 20px" type="submit" id="sign_selected" class="btn btn-success" onclick="getAllSelected()">Подписать выделенные</button>
           <button style="margin-bottom: 5px" class="btn btn-info" onclick="document.location='/add_doc'">Добавить</button>
       </nobr>
@@ -262,8 +280,10 @@
               <option value="">Все имена</option>
               <option th:each="fio : ${FIOs}" th:value="${fio.key1}" th:text="${fio.value}"></option>
           </select>
+          На подпись:&nbsp;
+          <input type="checkbox" id="onSign" style="transform:scale(1.5); vertical-align: middle; text-align: center;margin-right: 30px">
           <button id="btnDelAll" type="submit" class="btn btn-danger" onclick="delParams()">Сбросить</button>
-          <button style="margin-bottom: 5px; margin-left: 280px" onclick="document.location='/xlsx'" class="btn btn-success">Выгрузить в Excel</button>
+          <button style="margin-bottom: 5px; margin-left: 150px" onclick="document.location='/xlsx'" class="btn btn-success">Выгрузить в Excel</button>
       </nobr>
 
 
@@ -350,6 +370,9 @@
               let fioRest = rest.fio;
               let depRest = rest.dep;
               let controlRest = rest.control;
+              let onSignRest = rest.onSign;
+
+              document.getElementById("onSign").checked = onSignRest;
 
               let mode = document.getElementById('mode').getElementsByTagName('option');
 
@@ -363,6 +386,7 @@
                   if (control[i].value === controlRest.toString()) control[i].selected = true;
               }
 
+              document.getElementById('onSign').checked = onSignRest;
 
               let mode1 = document.getElementById('mode2').getElementsByTagName('option');
 
@@ -504,9 +528,7 @@
                   if(elem.Сontrolflg === 2)
                       flg = "<img title='"+elem.Сontrolmsg+"' style='vertical-align: middle; text-align: center;width: 50%;' src=\"/images/ok.png\">";
 
-                  let checkbox = "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input disabled style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" type=\"checkbox\" size=\"10px\"></td> ";
-                  if(elem.checkbox)
-                      checkbox = "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" class='"+elem.Tcpoa+"' name=\"list\" type=\"checkbox\" size=\"10px\"></td> "
+                  let checkbox = "<tr> <td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><input style=\"transform:scale(1.5); vertical-align: middle; text-align: center;\" class='"+elem.Tcpoa+"' name=\"list\" type=\"checkbox\" size=\"10px\"></td> "
 
                   html += checkbox +
                       "<td style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"><button className=\"btn btn-info\"  onclick=\"document.location='/edit_doc?tcpoa=" + elem.Tcpoa + "'\" style=\"width: 60px;\">"+elem.Tcpoa+"</button></td> " +
@@ -582,6 +604,10 @@
           });
 
           document.getElementById("mode2").addEventListener('change',function() {
+              checkAndRun();
+          });
+
+          document.getElementById("onSign").addEventListener('change',function() {
               checkAndRun();
           });
 
@@ -675,6 +701,7 @@
               let m1 = document.getElementById("mode").options[document.getElementById("mode").selectedIndex].value;
               let m2 = document.getElementById("mode1").options[document.getElementById("mode1").selectedIndex].value;
               let control = document.getElementById("control").options[document.getElementById("control").selectedIndex].value;
+              let onSign = document.getElementById("onSign").checked;
               let m3 = document.getElementById("mode2").options[document.getElementById("mode2").selectedIndex].value;
               let sdate = document.getElementById("startTime").value;
               let edate = document.getElementById("endTime").value;
@@ -683,6 +710,7 @@
               setCookie('tmp', m1, {secure: true, 'max-age': 3600});
               setCookie('dep', m2, {secure: true, 'max-age': 3600});
               setCookie('fio', m3, {secure: true, 'max-age': 3600});
+              setCookie('onSign', onSign, {secure: true, 'max-age': 3600});
               setCookie('control', control, {secure: true, 'max-age': 3600});
               if(sdate.length > 0)
                   setCookie('startTime', sdate, {secure: true, 'max-age': 3600});
@@ -716,6 +744,7 @@
               deleteCookie("dep");
               deleteCookie("fio");
               deleteCookie("sort");
+              deleteCookie("onSign");
 
               getRows();
           }

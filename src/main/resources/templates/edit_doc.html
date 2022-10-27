@@ -46,7 +46,7 @@
         }
     </style>
 </head>
-<body>
+<body onload="getParams()">
 
 <div layout:fragment="title" style="margin-left: 50px">
   Документ
@@ -56,7 +56,7 @@
     </nobr>
 </div>
 
-<div layout:fragment="content">
+<div layout:fragment="content" >
     <div class="popup-fade">
         <div class="popup">
             <button style="margin-left: 350px" onclick="fadeOut('.popup-fade')" class="btn btn-danger btn-sm">Закрыть</button>
@@ -165,6 +165,25 @@
           </div>
         </div>
       <script>
+          function getParams(){
+              if (window.location.href.indexOf('error') + 1) {
+                  var params = window
+                      .location
+                      .search
+                      .replace('?','')
+                      .split('&')
+                      .reduce(
+                          function(p,e){
+                              var a = e.split('=');
+                              p[ decodeURIComponent(a[0])] = decodeURIComponent(a[1]);
+                              return p;
+                          },
+                          {}
+                      );
+                  alert(params['error']);
+              }
+          }
+
           function sendSMS(){
               let xhr = new XMLHttpRequest();
 

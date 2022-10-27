@@ -7,7 +7,7 @@
 <body>
 
 <div layout:fragment="title" style="margin-left: 50px">
-    Создание документов
+    Пакетное создание документов
     <nobr style='vertical-align: middle; text-align: center; margin-left: 500px;'>
         <img style='vertical-align: middle; text-align: center;width: 15px;' src="/images/user.png">
         <span th:text="${user}" style="vertical-align: middle; margin-left: 2px; font-size: 14px"></span>
@@ -18,14 +18,19 @@
     <div class="container" style="margin: 20px">
 
         <div style="display: inline-block">
-            <iframe id="iframe" src="/tmp_pdf_file?tcpat=1" width="500" height="750"></iframe>
-                <form th:action="@{/multi_add}" method="post" style="display: inline;padding: 5px; vertical-align: top;" enctype="multipart/form-data">
+            <iframe id="iframe" src="" width="500" height="750"></iframe>
+                <form th:action="@{/multi_add}" method="post" style="display: inline;padding: 5px; vertical-align: top;" enctype="multipart/form-data" onsubmit="return check(document.getElementById('tmp').options[document.getElementById('tmp').selectedIndex].value)">
                     <div style="display: inline-block; margin-left: 50px">
                         <br>
                         Шаблон
-                        <select onchange="frame('/tmp_pdf_file?tcpat=' + this.options[this.selectedIndex].value)" style="height: 28px;  margin-bottom: 20px" id="tmp" name="tmp">
+                        <select onchange="frame(this.options[this.selectedIndex].value)" style="height: 28px;  margin-bottom: 20px" id="tmp" name="tmp">
+                            <option value="0">Нет</option>
                             <option th:each="tmp : ${template}" th:value="${tmp.Tcpat}" th:text="${tmp.Des}"></option>
                         </select>
+                        <br>
+                        <br>
+                        Дата создания
+                        <input th:value="${date}" type="date" id="date" name="date" style="width: 200px;margin-bottom: 20px">
                         <br>
                         <br>
                         <span> Отдел:</span>
@@ -35,13 +40,11 @@
                         </select>
                         <br>
                         <br>
-                        Дата создания
-                        <input th:value="${date}" type="date" id="date" name="date" style="width: 200px;margin-bottom: 20px">
-                        <br>
                         <br>
                         Должность
                         <select style="height: 28px;  margin-bottom: 20px; width: 200px;" id="wp" name="wp">
-                            <option value=""></option>
+                            <option value="">Нет</option>
+                            <option th:each="pst : ${pstmst}" th:value="${pst.Pst}" th:text="${pst.Des}"></option>
                         </select>
                         <div>
                             <br>
@@ -66,8 +69,20 @@
         </div>
     </div>
     <script>
-        function frame(gg){
-            document.getElementById('iframe').src=gg;
+        function check(gg){
+            if(gg.toString() !== "0")
+                return true;
+            alert("Для создания документов сначала выберете подходящий шаблон!");
+            return false;
+        }
+        function frame(tcpoa){
+            if(tcpoa.toString() !== "0") {
+                // document.getElementById("iframe").style.display = "";
+                document.getElementById('iframe').src = '/tmp_pdf_file?tcpat='+tcpoa;
+            } else{
+                // document.getElementById("iframe").style.display = "none";
+                document.getElementById("iframe").src = "";
+            }
         }
     </script>
 </div>

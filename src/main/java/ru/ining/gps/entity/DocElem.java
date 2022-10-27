@@ -31,6 +31,13 @@ public class DocElem {
 
     private boolean checkbox;
 
+    private int Newtmp;
+
+    private String Apppos;
+    private String Agrpos;
+    private String Crtpos;
+    private String Exepos;
+
 
 
     private String CrtpsndessignStyle;  //Автор
@@ -334,7 +341,47 @@ public class DocElem {
         this.checkbox = checkbox;
     }
 
-    public DocElem(int tcpoa, Date actdte, String dep, String template, String crtpsnsign, String crtpsndessign, Date crtdtesign, String agrpsnsign, String agrpsndessign, Date agrdtesign, String apppsnsign, String apppsndessign, Date appdtesign, String exepsnsign, String exepsndessign, Date exedtesign, int controlflg, String controlmsg, boolean checkbox) {
+    public int getNewtmp() {
+        return Newtmp;
+    }
+
+    public void setNewtmp(int newtmp) {
+        Newtmp = newtmp;
+    }
+
+    public String getApppos() {
+        return Apppos;
+    }
+
+    public void setApppos(String apppos) {
+        Apppos = apppos;
+    }
+
+    public String getAgrpos() {
+        return Agrpos;
+    }
+
+    public void setAgrpos(String agrpos) {
+        Agrpos = agrpos;
+    }
+
+    public String getCrtpos() {
+        return Crtpos;
+    }
+
+    public void setCrtpos(String crtpos) {
+        Crtpos = crtpos;
+    }
+
+    public String getExepos() {
+        return Exepos;
+    }
+
+    public void setExepos(String exepos) {
+        Exepos = exepos;
+    }
+
+    public DocElem(int tcpoa, Date actdte, String dep, String template, String crtpsnsign, String crtpsndessign, Date crtdtesign, String agrpsnsign, String agrpsndessign, Date agrdtesign, String apppsnsign, String apppsndessign, Date appdtesign, String exepsnsign, String exepsndessign, Date exedtesign, int controlflg, String controlmsg, boolean checkbox, int newtmp, String crtpos, String agrpos, String apppos, String exepos) {
         Tcpoa = tcpoa;
         Actdte = actdte;
         Dep = dep;
@@ -354,6 +401,12 @@ public class DocElem {
         Сontrolflg=controlflg;
         Сontrolmsg=controlmsg;
         this.checkbox=checkbox;
+        Newtmp=newtmp;
+
+        Crtpos=crtpos;
+        Apppos=apppos;
+        Agrpos=agrpos;
+        Exepos=exepos;
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -413,7 +466,7 @@ public class DocElem {
         if(Agrpsnsign.contains("<REJECT>")) {
             AgrpsndessignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#CD5C5C\"";
             AgrdtesignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#CD5C5C\"";
-        }else if((Agrpsnsign.contains("<NNV>") && sdf.format(Crtdtesign).replace("1901-01-01", "").length() > 0) || sdf.format(Agrdtesign).replace("1901-01-01", "").length()>0) {
+        }else if((Agrpsnsign.contains("<NNV>") && ((sdf.format(Crtdtesign).replace("1901-01-01", "").length() > 0 || Crtpsnsign.contains("<NNV>")))) || sdf.format(Agrdtesign).replace("1901-01-01", "").length()>0) {
             AgrpsndessignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"";
             AgrdtesignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"";
         }else{
@@ -424,7 +477,7 @@ public class DocElem {
         if(Apppsnsign.contains("<REJECT>")) {
             ApppsndessignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#CD5C5C\"";
             AppdtesignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#CD5C5C\"";
-        }else if((Apppsnsign.contains("<NNV>") && sdf.format(Agrdtesign).replace("1901-01-01", "").length() > 0) || sdf.format(Appdtesign).replace("1901-01-01", "").length()>0) {
+        }else if((Apppsnsign.contains("<NNV>") && (sdf.format(Agrdtesign).replace("1901-01-01", "").length() > 0 || Agrpsnsign.contains("<NNV>"))) || sdf.format(Appdtesign).replace("1901-01-01", "").length()>0) {
             ApppsndessignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"";
             AppdtesignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"";
         }else{
@@ -435,7 +488,7 @@ public class DocElem {
         if(Exepsnsign.contains("<REJECT>")) {
             ExepsndessignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#CD5C5C\"";
             ExedtesignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#CD5C5C\"";
-        }else if((Exepsnsign.contains("<NNV>") && sdf.format(Appdtesign).replace("1901-01-01", "").length() > 0) || sdf.format(Exedtesign).replace("1901-01-01", "").length()>0) {
+        }else if((Exepsnsign.contains("<NNV>") && (sdf.format(Appdtesign).replace("1901-01-01", "").length() > 0 || Apppsnsign.contains("<NNV>"))) || sdf.format(Exedtesign).replace("1901-01-01", "").length()>0) {
             ExepsndessignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"";
             ExedtesignStyle = "style=\"vertical-align: middle; text-align: center;\" bgcolor=\"#c3d79b\"";
         }else{

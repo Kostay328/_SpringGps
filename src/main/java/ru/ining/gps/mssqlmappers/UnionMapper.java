@@ -51,6 +51,12 @@ public interface UnionMapper {
     @Select("SELECT Des, Tcpat FROM Tcpatmst WHERE Crtdoctyp=4")
     List<Templeate> getTmpLstWO();
 
+    @Select("SELECT Des, Tcpat FROM Tcpatmst WHERE Multisign = 1")
+    List<Templeate> getTmpLstMa();
+
+    @Select("SELECT Des, Tcpat FROM Tcpatmst WHERE Crtdoctyp=4 and  Multisign = 1")
+    List<Templeate> getTmpLstMaWO();
+
     @Select("SELECT DISTINCT Tcpoa as key1, Psndes as value FROM Tcpoahdr")
     List<Names> getFIOLst();
 
@@ -63,9 +69,9 @@ public interface UnionMapper {
     boolean insertTcpoahdr(int tcpoa, int tmp, Date actdte, Date entdte, String psn, String entby, String tabnum, String psndes, String psnCrt, String psndesCrt, String psnAgr, String psndesAgr, String psnApp, String psndesApp, String psnExe, String psndesExe);
 
     @Insert("INSERT INTO Tcpoahdr " +
-            "(Tcpoa, Tcpat, Actdte, Entdte, Brn, Psn, Entby, Tabnum, Psndes, Strdte, Stpdte, Qnt) " +
-            "VALUES (#{tcpoa}, #{tmp}, #{actdte}, #{entdte}, 1, #{psn}, #{entby}, #{tabnum}, #{psndes}, #{Strdte}, #{Stpdte}, #{qnt})")
-    boolean insertTcpoahdr_(int tcpoa, int tmp, Date actdte, Date entdte, String psn, String entby, String tabnum, String psndes, Date Strdte, Date Stpdte, int qnt);
+            "(Tcpoa, Tcpat, Actdte, Entdte, Brn, Psn, Entby, Tabnum, Psndes, Crtpsnsign, Crtpsndessign, Agrpsnsign, Agrpsndessign, Apppsnsign, Apppsndessign, Exepsnsign, Exepsndessign, Strdte, Stpdte, Qnt) " +
+            "VALUES (#{tcpoa}, #{tmp}, #{actdte}, #{entdte}, 1, #{psn}, #{entby}, #{tabnum}, #{psndes}, #{psnCrt},  #{psndesCrt}, #{psnAgr}, #{psndesAgr}, #{psnApp}, #{psndesApp}, #{psnExe}, #{psndesExe}, #{Strdte}, #{Stpdte}, #{qnt})")
+    boolean insertTcpoahdr_(int tcpoa, int tmp, Date actdte, Date entdte, String psn, String entby, String tabnum, String psndes, String psnCrt, String psndesCrt, String psnAgr, String psndesAgr, String psnApp, String psndesApp, String psnExe, String psndesExe, Date Strdte, Date Stpdte, int qnt);
 
     @Select("SELECT * FROM Tcpoahdr WHERE Tcpoa = #{tcpoa}")
     Tcpoahdr getTcpoahdrElem(int tcpoa);
@@ -85,11 +91,20 @@ public interface UnionMapper {
     @Select("SELECT Tabnum from Psnbrn WHERE Psn = ${psn}")
     String getTab(String psn);
 
+    @Select("SELECT * from Pstmst")
+    List<Pstmst> getPstmst();
+
     @Select("SELECT DISTINCT a.Psn from Psnmst a, Psnbrn b, Clnmst c WHERE a.Psn=b.Psn AND b.Cln = c.Cln AND c.Brn = #{brn} AND c.Cln = #{cln}")
     List<String> getPsnLst(int brn, int cln);
 
     @Select("SELECT DISTINCT a.Psn from Psnmst a, Psnbrn b, Clnmst c WHERE a.Psn=b.Psn AND b.Cln = c.Cln")
     List<String> getPsnLstNPR();
+
+    @Select("SELECT DISTINCT a.Psn from Psnmst a, Psnbrn b, Clnmst c, Pstmst z WHERE a.Psn=b.Psn AND b.Cln = c.Cln AND z.Pst = b.Pst AND c.Brn = #{brn} AND c.Cln = #{cln} AND b.Rcdsts < 9 AND z.Pst = #{pst}")
+    List<String> getPsnLstPst(int brn, int cln, int pst);
+
+    @Select("SELECT DISTINCT a.Psn from Psnmst a, Psnbrn b, Clnmst c, Pstmst z WHERE a.Psn=b.Psn AND b.Cln = c.Cln AND z.Pst = b.Pst AND b.Rcdsts < 9 AND z.Pst = #{pst}")
+    List<String> getPsnLstNPRPst(int pst);
 
     @Update("UPDATE Tcpoahdr SET Crtpsnsign = #{psn}, Crtpsndessign = #{psndes}, Crtpos = #{passhash}, Crtdtesign = #{dtesign} WHERE Tcpoa = #{tcpoa}")
     int addSignCrt(String psn, String psndes, String passhash, Date dtesign, int tcpoa);
@@ -117,6 +132,9 @@ public interface UnionMapper {
 
     @Update("UPDATE Tcpoahdr SET Code = #{code} WHERE Tcpoa = #{tcpoa}")
     int updateTcpoahdrCode(String code, int tcpoa);
+
+    @Update("UPDATE Tcpoahdr SET Exedtesign = #{exedtesign}, Next = #{next} WHERE Tcpoa = #{tcpoa}")
+    int updateTcpoahdrExedte(Date exedtesign, int next, int tcpoa);
 
 
     @Select("SELECT c.Des FROM Psnbrn p, Cscmst c WHERE p.Csc=c.Csc AND p.Psn=#{psn}")

@@ -13,7 +13,7 @@
 
     <groupId>ru.ining.applications</groupId>
     <artifactId>SpringGps</artifactId>
-    <version>2.1</version>
+    <version>2.8</version>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
@@ -21,6 +21,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.thymeleaf.extras</groupId>
+            <artifactId>thymeleaf-extras-springsecurity4</artifactId>
+            <version>3.0.4.RELEASE</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
@@ -49,7 +54,7 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.22</version>
+            <version>8.0.21</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc -->
         <dependency>
@@ -126,6 +131,11 @@
             <groupId>com.github.xuwei-k</groupId>
             <artifactId>html2image</artifactId>
             <version>0.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>ru.ining.applications</groupId>
+            <artifactId>SpringGps</artifactId>
+            <version>2.8</version>
         </dependency>
     </dependencies>
 

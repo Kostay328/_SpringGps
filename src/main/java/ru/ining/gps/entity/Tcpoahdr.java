@@ -60,9 +60,11 @@ public class Tcpoahdr {
   private int controlflg;
   private String controlmsg;
   private String code;
+  private int prev;
+  private int next;
 
 
-  public Tcpoahdr(String tcpoa, String tcpoaext, String tcpoabrn, Timestamp actdte, Timestamp stpdte, String brn, String vclstamp, String vcl, String regnum, String ter, String psn, String tabnum, String psndes, String tcpat, String ptn, String amt, String taxrte, String header, String text, String pctstamp, String prtflg, String acqflg, Timestamp acqdte, String urlid, String entby, String lstchgby, Timestamp entdte, Timestamp lstchgdte, Timestamp strdte, String exesign, String crtpsnsign, String crtpsndessign, String crtpos, String crtsign, String agrpsnsign, String agrpsndessign, String agrpos, String agrsign, String apppsnsign, String apppsndessign, String apppos, String appsign, String exepsnsign, String exepsndessign, String exepos, Timestamp crtdtesign, Timestamp agrdtesign, Timestamp appdtesign, Timestamp exedtesign, String qnt, String docx, String rejectmsg, int controlflg, String controlmsg, String code) {
+  public Tcpoahdr(String tcpoa, String tcpoaext, String tcpoabrn, Timestamp actdte, Timestamp stpdte, String brn, String vclstamp, String vcl, String regnum, String ter, String psn, String tabnum, String psndes, String tcpat, String ptn, String amt, String taxrte, String header, String text, String pctstamp, String prtflg, String acqflg, Timestamp acqdte, String urlid, String entby, String lstchgby, Timestamp entdte, Timestamp lstchgdte, Timestamp strdte, String exesign, String crtpsnsign, String crtpsndessign, String crtpos, String crtsign, String agrpsnsign, String agrpsndessign, String agrpos, String agrsign, String apppsnsign, String apppsndessign, String apppos, String appsign, String exepsnsign, String exepsndessign, String exepos, Timestamp crtdtesign, Timestamp agrdtesign, Timestamp appdtesign, Timestamp exedtesign, String qnt, String docx, String rejectmsg, int controlflg, String controlmsg, String code, int prev, int next) {
     this.tcpoa = tcpoa;
     this.tcpoaext = tcpoaext;
     this.tcpoabrn = tcpoabrn;
@@ -118,6 +120,24 @@ public class Tcpoahdr {
     this.controlflg = controlflg;
     this.controlmsg = controlmsg;
     this.code = code;
+    this.prev = prev;
+    this.next = next;
+  }
+
+  public int getPrev() {
+    return prev;
+  }
+
+  public void setPrev(int prev) {
+    this.prev = prev;
+  }
+
+  public int getNext() {
+    return next;
+  }
+
+  public void setNext(int next) {
+    this.next = next;
   }
 
   public String getCode() {

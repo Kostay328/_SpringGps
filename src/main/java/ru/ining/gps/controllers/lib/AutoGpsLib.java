@@ -159,6 +159,7 @@ public class AutoGpsLib {
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
+            return false;
         }
     return true;
     }
@@ -178,6 +179,7 @@ public class AutoGpsLib {
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
+            return false;
         }
         return true;
     }
@@ -202,6 +204,7 @@ public class AutoGpsLib {
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
+            return false;
         }
         return true;
     }
@@ -231,6 +234,7 @@ public class AutoGpsLib {
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
+            return false;
         }
         return true;
     }
@@ -377,6 +381,7 @@ public class AutoGpsLib {
             ps.executeUpdate();
         }catch (Exception e){
             e.printStackTrace();
+            return false;
         }
         return true;
     }
@@ -520,7 +525,7 @@ public class AutoGpsLib {
         return res;
     }
 
-    public static List<DocElem> getDocElem(String url, Date startTime, Date endTime, String dep, String tmp, String fio, int control, boolean psn, String p) {
+    public static List<DocElem> getDocElem(String url, Date startTime, Date endTime, String dep, String tmp, String fio, int control, boolean psn, String p, boolean onSign) {
         String psnStr = " ";
         if(!psn){
             psnStr += "AND (b.Crtpsnsign = '"+p+"'OR b.Agrpsnsign = '"+p+"'OR b.Apppsnsign = '"+p+"'OR b.Exepsnsign = '"+p+"') ";
@@ -541,12 +546,12 @@ public class AutoGpsLib {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             Connection conn = DriverManager.getConnection(url);
-            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtpsndessign, b.Crtdtesign, b.Agrpsnsign, b.Agrpsndessign, b.Agrdtesign, b.Apppsnsign, b.Apppsndessign, b.Appdtesign, b.Exepsnsign, b.Exepsndessign, b.Exedtesign, b.Entdte, b.Сontrolflg, b.Сontrolmsg, a.Multisign " +
+            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtpsndessign, b.Crtdtesign, b.Agrpsnsign, b.Agrpsndessign, b.Agrdtesign, b.Apppsnsign, b.Apppsndessign, b.Appdtesign, b.Exepsnsign, b.Exepsndessign, b.Exedtesign, b.Entdte, b.Crtpos, b.Agrpos, b.Apppos, b.Exepos, b.Сontrolflg, b.Сontrolmsg, a.Multisign, a.Newtmp " +
                     "from Tcpoahdr b " +
                     " left join Tcpatmst a on b.Tcpat = a.Tcpat " +
                     " left join Psnbrn c on b.Psn=c.Psn and b.Tabnum=c.Tabnum and c.Rcdsts < 9 " +
                     " left join Clnmst d on c.Cln=d.Cln and c.Ptnbrn=d.Brn " +
-                    "WHERE b.Actdte > '"+sdf.format(startTime)+"' AND b.Actdte < '"+sdf.format(endTime) +"'"+psnStr+
+                    "WHERE b.Actdte >= '"+sdf.format(startTime)+"' AND b.Actdte <= '"+sdf.format(endTime) +"'"+psnStr+
                     filtr;
 
             ResultSet rs = conn.createStatement().executeQuery(sql);
@@ -571,6 +576,11 @@ public class AutoGpsLib {
                 String Crtpsnsign = rs.getString("Crtpsnsign");
                 String Exepsnsign = rs.getString("Exepsnsign");
 
+                String Apppos = rs.getString("Apppos");
+                String Agrpos = rs.getString("Agrpos");
+                String Crtpos = rs.getString("Crtpos");
+                String Exepos = rs.getString("Exepos");
+
                 Date Appdtesign = new java.util.Date(rs.getTimestamp("Appdtesign").getTime());
                 Date Agrdtesign = new java.util.Date(rs.getTimestamp("Agrdtesign").getTime());
                 Date Crtdtesign = new java.util.Date(rs.getTimestamp("Crtdtesign").getTime());
@@ -578,17 +588,49 @@ public class AutoGpsLib {
 
                 boolean checkbox = rs.getBoolean("Multisign");
 
+                int Newtmp = rs.getInt("Newtmp");
 
-                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtpsndessign, Crtdtesign, Agrpsnsign, Agrpsndessign, Agrdtesign, Apppsnsign, Apppsndessign, Appdtesign, Exepsnsign, Exepsndessign, Exedtesign, Сontrolflg, Сontrolmsg, checkbox));
+
+                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtpsndessign, Crtdtesign, Agrpsnsign, Agrpsndessign, Agrdtesign, Apppsnsign, Apppsndessign, Appdtesign, Exepsnsign, Exepsndessign, Exedtesign, Сontrolflg, Сontrolmsg, checkbox, Newtmp, Crtpos, Agrpos, Apppos, Exepos));
             }
         } catch (Exception throwables) {
             throwables.printStackTrace();
         }
 
-        return res;
+        if(onSign){
+            List<DocElem> res2 = new ArrayList<>();
+            for (DocElem de:res) {
+                boolean canSignNow = false;
+
+                if(de.getCrtpsnsign().equals(p) && !sdf.format(de.getCrtdtesign()).contains("1901-01-01") && de.getCrtpos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                if(de.getAgrpsnsign().equals(p) && !sdf.format(de.getAgrdtesign()).contains("1901-01-01") && de.getAgrpos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                if(de.getApppsnsign().equals(p) && !sdf.format(de.getAppdtesign()).contains("1901-01-01") && de.getApppos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                if(de.getExepsnsign().equals(p) && !sdf.format(de.getExedtesign()).contains("1901-01-01") && de.getExepos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                canSignNow = canSignNow && !(de.getExepsndessign().length() > 0 && de.getNewtmp() > 0 && de.getExepsnsign().equals(p));
+
+                if(canSignNow)
+                    res2.add(de);
+            }
+
+            return res2;
+        }else
+            return res;
     }
 
-    public static List<DocElem> getDocElemPage(String url, String order, Date startTime, Date endTime, int i1, int i2, String dep, String tmp, String fio, int control, boolean psn, String p) {
+    public static List<DocElem> getDocElemPage(String url, String order, Date startTime, Date endTime, int i1, int i2, String dep, String tmp, String fio, int control, boolean psn, String p, boolean onSign) {
+
         String psnStr = " ";
         if(!psn){
             psnStr += "AND (b.Crtpsnsign = '"+p+"'OR b.Agrpsnsign = '"+p+"'OR b.Apppsnsign = '"+p+"'OR b.Exepsnsign = '"+p+"') ";
@@ -609,12 +651,12 @@ public class AutoGpsLib {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             Connection conn = DriverManager.getConnection(url);
-            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtpsndessign, b.Crtdtesign, b.Agrpsnsign, b.Agrpsndessign, b.Agrdtesign, b.Apppsnsign, b.Apppsndessign, b.Appdtesign, b.Exepsnsign, b.Exepsndessign, b.Exedtesign, b.Entdte, b.Сontrolflg, b.Сontrolmsg, a.Multisign " +
+            String sql = "select b.Tcpoa, b.Actdte, ISNULL(d.Des, '') as Dep, a.Des as Template, b.Crtpsnsign, b.Crtpsndessign, b.Crtdtesign, b.Agrpsnsign, b.Agrpsndessign, b.Agrdtesign, b.Apppsnsign, b.Apppsndessign, b.Appdtesign, b.Exepsnsign, b.Exepsndessign, b.Exedtesign, b.Entdte, b.Crtpos, b.Agrpos, b.Apppos, b.Exepos, b.Сontrolflg, b.Сontrolmsg, a.Multisign, a.Newtmp " +
                     "from Tcpoahdr b " +
                     " left join Tcpatmst a on b.Tcpat = a.Tcpat " +
                     " left join Psnbrn c on b.Psn=c.Psn and b.Tabnum=c.Tabnum and c.Rcdsts < 9 " +
                     " left join Clnmst d on c.Cln=d.Cln and c.Ptnbrn=d.Brn " +
-                    "WHERE b.Actdte > '"+sdf.format(startTime)+"' AND b.Actdte < '"+sdf.format(endTime) +"'"+psnStr+
+                    "WHERE b.Actdte >= '"+sdf.format(startTime)+"' AND b.Actdte <= '"+sdf.format(endTime) +"'"+psnStr+
                     filtr +
                     " ORDER BY " + order +
                     " offset " + i1 + " rows " +
@@ -641,6 +683,11 @@ public class AutoGpsLib {
                 String Crtpsnsign = rs.getString("Crtpsnsign");
                 String Exepsnsign = rs.getString("Exepsnsign");
 
+                String Apppos = rs.getString("Apppos");
+                String Agrpos = rs.getString("Agrpos");
+                String Crtpos = rs.getString("Crtpos");
+                String Exepos = rs.getString("Exepos");
+
                 Date Appdtesign = new java.util.Date(rs.getTimestamp("Appdtesign").getTime());
                 Date Agrdtesign = new java.util.Date(rs.getTimestamp("Agrdtesign").getTime());
                 Date Crtdtesign = new java.util.Date(rs.getTimestamp("Crtdtesign").getTime());
@@ -648,14 +695,44 @@ public class AutoGpsLib {
 
                 boolean checkbox = rs.getBoolean("Multisign");
 
+                int Newtmp = rs.getInt("Newtmp");
 
-                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtpsndessign, Crtdtesign, Agrpsnsign, Agrpsndessign, Agrdtesign, Apppsnsign, Apppsndessign, Appdtesign, Exepsnsign, Exepsndessign, Exedtesign, Сontrolflg, Сontrolmsg, checkbox));
-           }
+
+                res.add(new DocElem(Tcpoa, Actdte, Dep, Template, Crtpsnsign, Crtpsndessign, Crtdtesign, Agrpsnsign, Agrpsndessign, Agrdtesign, Apppsnsign, Apppsndessign, Appdtesign, Exepsnsign, Exepsndessign, Exedtesign, Сontrolflg, Сontrolmsg, checkbox, Newtmp, Crtpos, Agrpos, Apppos, Exepos));           }
         } catch (Exception throwables) {
             throwables.printStackTrace();
         }
 
-        return res;
+        if(onSign){
+            List<DocElem> res2 = new ArrayList<>();
+            for (DocElem de:res) {
+                boolean canSignNow = false;
+
+                if(de.getCrtpsnsign().equals(p) && !sdf.format(de.getCrtdtesign()).contains("1901-01-01") && de.getCrtpos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                if(de.getAgrpsnsign().equals(p) && !sdf.format(de.getAgrdtesign()).contains("1901-01-01") && de.getAgrpos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                if(de.getApppsnsign().equals(p) && !sdf.format(de.getAppdtesign()).contains("1901-01-01") && de.getApppos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                if(de.getExepsnsign().equals(p) && !sdf.format(de.getExedtesign()).contains("1901-01-01") && de.getExepos().length() == 0) {
+                    canSignNow = true;
+                }
+
+                canSignNow = canSignNow && !(de.getExepsndessign().length() > 0 && de.getNewtmp() > 0 && de.getExepsnsign().equals(p));
+
+                if(canSignNow)
+                    res2.add(de);
+            }
+
+            return res2;
+        }else
+            return res;
     }
 
     public static String getPsnLogin(String url) {

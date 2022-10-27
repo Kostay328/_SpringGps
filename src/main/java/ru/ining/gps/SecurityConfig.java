@@ -14,6 +14,8 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.thymeleaf.extras.springsecurity4.dialect.SpringSecurityDialect;
+import org.thymeleaf.spring5.SpringTemplateEngine;
 
 @Configuration
 @EnableWebSecurity
@@ -23,7 +25,14 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         http.headers().frameOptions().disable();
             http.authorizeRequests()
             .antMatchers(HttpMethod.GET, "/css/**", "/js/**", "/images/**", "/pdf/**", "rest/**").permitAll()
-            .anyRequest().authenticated()
+                    .antMatchers(HttpMethod.GET, "/").hasAnyAuthority("0", "1", "AADMIN")
+                    .antMatchers(HttpMethod.GET, "/add_doc/**").hasAnyAuthority("0", "1", "AADMIN")
+                    .antMatchers(HttpMethod.GET, "/edit_doc/**").hasAnyAuthority("0", "1", "AADMIN")
+                    .antMatchers(HttpMethod.GET, "/multi_add_doc/**").hasAnyAuthority("1")
+                    .antMatchers(HttpMethod.GET, "/add_tmp/**").hasAnyAuthority("1")
+                    .antMatchers(HttpMethod.GET, "/edit_tmp/**").hasAnyAuthority("1")
+                    .antMatchers(HttpMethod.GET, "/tmp_lst/**").hasAnyAuthority("1")
+//            .anyRequest().authenticated()
                 .and()
             .formLogin()
                 .loginPage("/login")
@@ -58,11 +67,14 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         try {
             auth.jdbcAuthentication().dataSource(dataSource())
                     .usersByUsernameQuery("select Email, CONCAT('{bcrypt}',newpass),1 as enabled from Psnmst where Email = ?")
-                    .authoritiesByUsernameQuery("SELECT Email, 'USER' as Authority FROM Psnmst WHERE Email = ?");
+                    .authoritiesByUsernameQuery("SELECT Email as login, Rank as Authority FROM Psnmst WHERE Email = ?");
         } catch (Exception e) { }
     }
 
-
+    @Bean
+    public SpringSecurityDialect securityDialect() {
+        return new SpringSecurityDialect();
+    }
 
 //    @Bean
 //    @Override
